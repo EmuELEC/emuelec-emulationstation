@@ -959,6 +959,8 @@ Can be created as an extra.
     - BATOCERA 29 : Point around which the image scale will be applyed.
 * `storyboard' - type: STORYBOARD.    
     - BATOCERA 29 : See storyboard documentation.
+* 'loops'
+    - Defines the times how often the video is played. 
 
 #### text
 
