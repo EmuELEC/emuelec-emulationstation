@@ -1478,7 +1478,6 @@ msgstr ""
 "Au cas où vous ne pourriez plus booter, créer un fichier vide nommé \"no_oc.oga\" "
 "dans la partition de boot (EMUELEC).\n"
 "\n"
-msgstr ""
 
 msgid ""
 "There is also the posibility of SD card file corruption!!! Only enable OC if "
