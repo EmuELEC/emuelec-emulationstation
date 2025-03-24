@@ -217,36 +217,41 @@ void ComponentList::update(int deltaTime)
 
 void ComponentList::onCursorChanged(const CursorState& state)
 {
-	mScrollbar.onCursorChanged();
+    mScrollbar.onCursorChanged();
 
-	// update the selector bar position
-	// in the future this might be animated
-	mSelectorBarOffset = 0;
-	for (int i = 0; i < mCursor; i++)
-		mSelectorBarOffset += getRowHeight(mEntries.at(i).data);
+    mSelectorBarOffset = 0;
+    for (int i = 0; i < mCursor; i++)
+        mSelectorBarOffset += getRowHeight(mEntries.at(i).data);
 
-	updateCameraOffset();
+    updateCameraOffset();
 
-	// this is terribly inefficient but we don't know what we came from so...
-	if (mFocused && mCursor >= 0 && mCursor < size())
-	{
-		for (auto it = mEntries.cbegin(); it != mEntries.cend(); it++)
-			for (auto elt : it->data.elements)
-				elt.component->onFocusLost();
+    if (mFocused && mCursor >= 0 && mCursor < size())
+    {
+        for (auto it = mEntries.cbegin(); it != mEntries.cend(); it++)
+            for (auto elt : it->data.elements)
+                elt.component->onFocusLost();
 
-		for (auto elt : mEntries.at(mCursor).data.elements)
-			elt.component->onFocusGained();
-	}
+        for (auto elt : mEntries.at(mCursor).data.elements)
+            elt.component->onFocusGained();
+    }
 
-	if (mCursorChangedCallback)
-		mCursorChangedCallback(state);
+    if (mCursorChangedCallback)
+        mCursorChangedCallback(state);
 
-	updateHelpPrompts();
+    updateHelpPrompts();
 
-	// tts
-	if (state == CURSOR_STOPPED && mOldCursor != mCursor)
-		saySelectedLine();
+    // Sound nur abspielen, wenn sich der Cursor tatsächlich geändert hat
+    if (mOldCursor != mCursor) 
+    {
+        Sound::get("/storage/.emulationstation/resources/mscroll.ogg")->play();
+    }
+
+    if (state == CURSOR_STOPPED && mOldCursor != mCursor)
+        saySelectedLine();
+
+    mOldCursor = mCursor; // Speichert die neue Position
 }
+
 
 void ComponentList::saySelectedLine()
 {
