@@ -597,8 +597,6 @@ void GuiMenu::openEmuELECSettings()
         SystemConf::getInstance()->set("ee_bootvideo.enabled", "1");
 		SystemConf::getInstance()->saveSystemConf();
 	});
-<<<<<<< HEAD
-=======
 	
 // Splash Settings
 s->addGroup(_("SPLASH SETTINGS"));
@@ -793,8 +791,6 @@ s->addSaveFunc([=] {
 
 	mWindow->pushGui(s);
 });
-
->>>>>>> 0ec53305c (Extended emulationstation menu with different splash configuration options)
 
 	s->addInputTextRow(_("DEFAULT YOUTUBE SEARCH WORD"), "youtube.searchword", false);
 
@@ -4800,10 +4796,6 @@ void GuiMenu::openQuitMenu_static(Window *window, bool quickAccessMenu, bool ani
 			}, _("NO"), nullptr));
 		}, "iconControllers");
 		
-		s->addEntry(_("KILL LIBRESPOT"), false, [] {
-            system("/emuelec/scripts/librekill.sh");
-        }, "iconLibrekill");
-
 		
 		s->addEntry(_("REBOOT FROM NAND"), false, [window] {
 			window->pushGui(new GuiMsgBox(window, _("REALLY REBOOT FROM NAND?"), _("YES"),
