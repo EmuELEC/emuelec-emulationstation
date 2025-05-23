@@ -961,9 +961,14 @@ void GuiMenu::createGamepadConfig(Window* window, GuiSettings* systemConfigurati
 	GuiSettings* gamepadConfiguration = new GuiSettings(window, _("GAMEPAD CONFIG"));
 
 	// Wiimote with IR-Sensorbar
-	gamepadConfiguration->addEntry(_("ACTIVATE WIIMOTE WITH SENSORBAR"), false, [] {
-    system("/usr/bin/runwiimote.sh");
-	});
+	gamepadConfiguration->addEntry(_("ACTIVATE WIIMOTE WITH IR-SENSORBAR"), false, [window] {
+    int result = system("/usr/bin/runwiimote.sh");
+    if(result == 0)
+        window->pushGui(new GuiMsgBox(window, _("Wiimote activated."), _("OK")));
+    else
+        window->pushGui(new GuiMsgBox(window, _("Error while running script."), _("OK")));
+});
+
 
 
 	// Advmame Gamepad
