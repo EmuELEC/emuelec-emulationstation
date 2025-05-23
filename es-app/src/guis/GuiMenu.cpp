@@ -961,10 +961,10 @@ void GuiMenu::createGamepadConfig(Window* window, GuiSettings* systemConfigurati
 	GuiSettings* gamepadConfiguration = new GuiSettings(window, _("GAMEPAD CONFIG"));
 
 	// Wiimote with IR-Sensorbar
-	
 	s->addEntry(_("ACTIVATE WIIMOTE WITH SENSORBAR"), false, [] {
-            system("/usr/bin/runwiimote.sh");
-    };
+    system("/usr/bin/runwiimote.sh");
+	});
+
 
 	// Advmame Gamepad
 	auto enable_advmamegp = std::make_shared<SwitchComponent>(window);
