@@ -960,6 +960,12 @@ void GuiMenu::createGamepadConfig(Window* window, GuiSettings* systemConfigurati
 {
 	GuiSettings* gamepadConfiguration = new GuiSettings(window, _("GAMEPAD CONFIG"));
 
+	// Wiimote with IR-Sensorbar
+	
+	s->addEntry(_("ACTIVATE WIIMOTE WITH SENSORBAR"), false, [] {
+            system("/usr/bin/runwiimote.sh");
+    };
+
 	// Advmame Gamepad
 	auto enable_advmamegp = std::make_shared<SwitchComponent>(window);
 	bool advgpEnabled = SystemConf::getInstance()->get("advmame_auto_gamepad") == "1";
@@ -4911,11 +4917,7 @@ void GuiMenu::openQuitMenu_static(Window *window, bool quickAccessMenu, bool ani
 			}, _("NO"), nullptr));
 		}, "iconControllers");
 		
-		s->addEntry(_("KILL LIBRESPOT"), false, [] {
-            system("/emuelec/scripts/librekill.sh");
-        }, "iconLibrekill");
-
-		
+			
 		s->addEntry(_("REBOOT FROM NAND"), false, [window] {
 			window->pushGui(new GuiMsgBox(window, _("REALLY REBOOT FROM NAND?"), _("YES"),
 				[] {
