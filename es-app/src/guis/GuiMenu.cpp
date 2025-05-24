@@ -60,11 +60,6 @@
 #include "TextToSpeech.h"
 #include "Paths.h"
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <signal.h>
-
 #if WIN32
 #include "Win32ApiSystem.h"
 #endif
@@ -966,53 +961,15 @@ void GuiMenu::createGamepadConfig(Window* window, GuiSettings* systemConfigurati
 	GuiSettings* gamepadConfiguration = new GuiSettings(window, _("GAMEPAD CONFIG"));
 
 	// Wiimote with IR-Sensorbar
-	
-
-auto enable_wiimote = std::make_shared<SwitchComponent>(mWindow);
-bool wiimoteEnabled = SystemConf::getInstance()->get("ee_wiimote.enabled") == "1";
-enable_wiimote->setState(wiimoteEnabled);
-s->addWithLabel(_("WIIMOTE WITH IR-SENSORBAR"), enable_wiimote);
-
-s->addSaveFunc([enable_wiimote, window] {
-    bool wiimoteEnabled = enable_wiimote->getState();
-    // Speichere den neuen Zustand in der Systemkonfiguration
-    SystemConf::getInstance()->set("ee_wiimote.enabled", wiimoteEnabled ? "1" : "0");
-
-    // Statische Variable, um die Prozess-ID zwischen den Aufrufen beizubehalten.
-    static pid_t wiimote_pid = -1;
-
-    if (wiimoteEnabled) {
-        // Wenn der Prozess noch nicht läuft, starte ihn.
-        if (wiimote_pid <= 0) {
-            pid_t pid = fork();
-            if (pid == 0) {  // Kindprozess: Ersetze diesen durch das Skript
-                execl("/usr/bin/runwiimote.sh", "runwiimote.sh", (char*)NULL);
-                // Sollte execl fehlschlagen, beenden wir den Kindprozess:
-                exit(1);
-            }
-            else if (pid > 0) {
-                // Elternprozess: Speichere die PID für zukünftige Referenz
-                wiimote_pid = pid;
-            }
-            else {
-                // Bei einem Fork-Fehler: Hier könnte man eine Fehlermeldung oder Logging einfügen
-            }
-        }
-    }
-    else {
-        // Wenn der Switch deaktiviert wurde, und ein Prozess läuft, beenden wir ihn.
-        if (wiimote_pid > 0) {
-            kill(wiimote_pid, SIGTERM);  // Sende SIGTERM zur sanften Beendigung
-            int status;
-            waitpid(wiimote_pid, &status, 0);  // Warte auf den Prozess, um Zombie-Prozesse zu vermeiden
-            wiimote_pid = -1;
-        }
-    }
-    SystemConf::getInstance()->saveSystemConf();
+	gamepadConfiguration->addEntry(_("ACTIVATE WIIMOTE WITH IR-SENSORBAR"), false, [window] {
+    int result = system("/usr/bin/runwiimote.sh &");
+    if(result == 0)
+        window->pushGui(new GuiMsgBox(window, _("Wiimote IR activated."), _("OK")));
+    else
+        window->pushGui(new GuiMsgBox(window, _("Error while running script."), _("OK")));
 });
 
-
-
+});
 
 
 
