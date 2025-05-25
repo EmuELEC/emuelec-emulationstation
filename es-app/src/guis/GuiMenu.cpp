@@ -4923,8 +4923,7 @@ void GuiMenu::openQuitMenu_static(Window *window, bool quickAccessMenu, bool ani
 				Utils::Platform::quitES(Utils::Platform::QuitMode::QUIT);
 			}, _("NO"), nullptr));
 		}, "iconControllers");
-		
-			
+				
 		s->addEntry(_("REBOOT FROM NAND"), false, [window] {
 			window->pushGui(new GuiMsgBox(window, _("REALLY REBOOT FROM NAND?"), _("YES"),
 				[] {
