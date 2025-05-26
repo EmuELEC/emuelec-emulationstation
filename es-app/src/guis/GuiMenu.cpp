@@ -960,6 +960,16 @@ void GuiMenu::createGamepadConfig(Window* window, GuiSettings* systemConfigurati
 {
 	GuiSettings* gamepadConfiguration = new GuiSettings(window, _("GAMEPAD CONFIG"));
 
+	// Wiimote Connection Script Launcher
+gamepadConfiguration->addEntry(_("ACTIVATE WIIMOTE CONNECTION"), false, [window] {
+    int result = system("/storage/.config/emuelec/bin/connectbtwii.sh &");
+    if(result == 0)
+        window->pushGui(new GuiMsgBox(window, _("Wiimote successfully activated."), _("OK")));
+    else
+        window->pushGui(new GuiMsgBox(window, _("Error while running connectbtwii.sh."), _("OK")));
+});
+
+	
 	// Wiimote with IR-Sensorbar
 	gamepadConfiguration->addEntry(_("ACTIVATE WIIMOTE WITH IR-SENSORBAR"), false, [window] {
     int result = system("/usr/bin/runwiimote.sh &");
