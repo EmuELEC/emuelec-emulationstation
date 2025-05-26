@@ -960,14 +960,18 @@ void GuiMenu::createGamepadConfig(Window* window, GuiSettings* systemConfigurati
 {
 	GuiSettings* gamepadConfiguration = new GuiSettings(window, _("GAMEPAD CONFIG"));
 
-	// Wiimote Connection Script Launcher
+// Wiimote Connection Script Launcher (synchron)
 gamepadConfiguration->addEntry(_("ACTIVATE WIIMOTE CONNECTION"), false, [window] {
-    int result = system("/storage/.config/emuelec/bin/connectbtwii.sh &");
+     window->pushGui(new GuiMsgBox(window, _("Please ensure your Wiimote is in pairing mode (hold buttons 1+2).\nConnecting, please wait..."), _("OK")));
+    
+    int result = system("/storage/.config/emuelec/bin/connectbtwii.sh");
+    
     if(result == 0)
-        window->pushGui(new GuiMsgBox(window, _("Wiimote successfully activated."), _("OK")));
+        window->pushGui(new GuiMsgBox(window, _("Wiimote successfully connected."), _("OK")));
     else
         window->pushGui(new GuiMsgBox(window, _("Error while running connectbtwii.sh."), _("OK")));
 });
+
 
 	
 	// Wiimote with IR-Sensorbar
