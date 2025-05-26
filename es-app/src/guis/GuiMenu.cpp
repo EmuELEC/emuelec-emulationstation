@@ -960,22 +960,37 @@ void GuiMenu::createGamepadConfig(Window* window, GuiSettings* systemConfigurati
 {
 	GuiSettings* gamepadConfiguration = new GuiSettings(window, _("GAMEPAD CONFIG"));
 
-// Wiimote Connection Script Launcher (synchron)
+#include <thread>
+#include <chrono>
 
+// Wiimote Connection Script Launcher (asynchronously with a short delay)
 gamepadConfiguration->addEntry(_("ACTIVATE WIIMOTE CONNECTION"), false, [window] {
-    // Immediately show a dialog telling the user to put the Wiimote in pairing mode.
-    window->pushGui(new GuiMsgBox(window, _("Please ensure your Wiimote is in pairing mode (hold buttons 1+2).\nConnecting, please wait..."), _("OK")));
-    
-    // Perform a blocking call; the GUI will freeze until the pairing completes.
-    int result = system("/storage/.config/emuelec/bin/connectbtwii.sh");
-    
-    if(result == 0)
-        window->pushGui(new GuiMsgBox(window, _("Wiimote successfully connected."), _("OK")));
-    else
-        window->pushGui(new GuiMsgBox(window, _("Error while running connectbtwii.sh."), _("OK")));
+    // Immediately show an instruction popup.
+    window->pushGui(new GuiMsgBox(window,
+        _("Please ensure your Wiimote is in pairing mode (hold buttons 1+2).\nConnecting..."),
+        _("OK")));
+
+    // Launch the pairing script in a background thread after a short delay
+    std::thread([window]() {
+        // Give the GUI time to update the popup (adjust delay if necessary)
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Call the pairing script (this will block until the pairing process completes)
+        int result = system("/storage/.config/emuelec/bin/connectbtwii.sh");
+
+        // After the pairing script returns, display the result.
+        // (Note: if your framework requires GUI calls to be made on the main thread,
+        // consider dispatching this call to the main thread appropriately.)
+        if(result == 0)
+            window->pushGui(new GuiMsgBox(window,
+                _("Wiimote successfully connected."),
+                _("OK")));
+        else
+            window->pushGui(new GuiMsgBox(window,
+                _("Error while running connectbtwii.sh."),
+                _("OK")));
+    }).detach();
 });
-
-
 
 	
 	// Wiimote with IR-Sensorbar
