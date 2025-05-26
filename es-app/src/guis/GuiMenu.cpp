@@ -961,9 +961,12 @@ void GuiMenu::createGamepadConfig(Window* window, GuiSettings* systemConfigurati
 	GuiSettings* gamepadConfiguration = new GuiSettings(window, _("GAMEPAD CONFIG"));
 
 // Wiimote Connection Script Launcher (synchron)
+
 gamepadConfiguration->addEntry(_("ACTIVATE WIIMOTE CONNECTION"), false, [window] {
-     window->pushGui(new GuiMsgBox(window, _("Please ensure your Wiimote is in pairing mode (hold buttons 1+2).\nConnecting, please wait..."), _("OK")));
+    // Immediately show a dialog telling the user to put the Wiimote in pairing mode.
+    window->pushGui(new GuiMsgBox(window, _("Please ensure your Wiimote is in pairing mode (hold buttons 1+2).\nConnecting, please wait..."), _("OK")));
     
+    // Perform a blocking call; the GUI will freeze until the pairing completes.
     int result = system("/storage/.config/emuelec/bin/connectbtwii.sh");
     
     if(result == 0)
@@ -971,6 +974,7 @@ gamepadConfiguration->addEntry(_("ACTIVATE WIIMOTE CONNECTION"), false, [window]
     else
         window->pushGui(new GuiMsgBox(window, _("Error while running connectbtwii.sh."), _("OK")));
 });
+
 
 
 	
