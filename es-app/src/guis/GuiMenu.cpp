@@ -31,6 +31,8 @@
 #include <SDL_events.h>
 #include <algorithm>
 #include "utils/Platform.h"
+#include "utils/StringUtil.h"
+
 
 
 #include "SystemConf.h"
@@ -4891,10 +4893,9 @@ void GuiMenu::openQuitMenu_static(Window *window, bool quickAccessMenu, bool ani
 	s->addEntry(_("RESTART EMULATIONSTATION"), false, [window] {
 		window->pushGui(new GuiMsgBox(window, _("REALLY RESTART EMULATIONSTATION?"), _("YES"),
 			[] {
-    		   /*Utils::Platform::ProcessStartInfo("systemctl restart emustation.service", "", nullptr);*/
-    		   Scripting::fireEvent("quit", "restart");
-			   Utils::Platform::quitES(Utils::Platform::QuitMode::QUIT);
-		}, _("NO"), nullptr));
+				Scripting::fireEvent("quit", "restart");
+				Utils::Platform::quitES(Utils::Platform::QuitMode::QUIT);
+			}, _("NO"), nullptr));
 	}, "iconRestart");
 
 	bool isFullUI = UIModeController::getInstance()->isUIModeFull();
@@ -4903,31 +4904,46 @@ void GuiMenu::openQuitMenu_static(Window *window, bool quickAccessMenu, bool ani
 		s->addEntry(_("START RETROARCH"), false, [window] {
 			window->pushGui(new GuiMsgBox(window, _("REALLY START RETROARCH?"), _("YES"),
 				[] {
-				remove("/var/lock/start.games");
-				Utils::Platform::ProcessStartInfo("touch /var/lock/start.retro").run();
-				Utils::Platform::ProcessStartInfo("systemctl start retroarch.service").run();
-				Scripting::fireEvent("quit", "retroarch");
-				Utils::Platform::quitES(Utils::Platform::QuitMode::QUIT);
-			}, _("NO"), nullptr));
+					remove("/var/lock/start.games");
+					Utils::Platform::ProcessStartInfo("touch /var/lock/start.retro").run();
+					Utils::Platform::ProcessStartInfo("systemctl start retroarch.service").run();
+					Scripting::fireEvent("quit", "retroarch");
+					Utils::Platform::quitES(Utils::Platform::QuitMode::QUIT);
+				}, _("NO"), nullptr));
 		}, "iconControllers");
-		
-		s->addEntry(_("KILL LIBRESPOT"), false, [] {
-            system("/emuelec/scripts/librekill.sh");
-        }, "iconLibrekill");
 
-		
 		s->addEntry(_("REBOOT FROM NAND"), false, [window] {
 			window->pushGui(new GuiMsgBox(window, _("REALLY REBOOT FROM NAND?"), _("YES"),
 				[] {
-				Scripting::fireEvent("quit", "nand");
-				Utils::Platform::ProcessStartInfo("rebootfromnand").run();
-				Utils::Platform::ProcessStartInfo("sync").run();
-				Utils::Platform::ProcessStartInfo("systemctl reboot").run();
-				Utils::Platform::quitES(Utils::Platform::QuitMode::QUIT);
-			}, _("NO"), nullptr));
+					Scripting::fireEvent("quit", "nand");
+					Utils::Platform::ProcessStartInfo("rebootfromnand").run();
+					Utils::Platform::ProcessStartInfo("sync").run();
+					Utils::Platform::ProcessStartInfo("systemctl reboot").run();
+					Utils::Platform::quitES(Utils::Platform::QuitMode::QUIT);
+				}, _("NO"), nullptr));
 		}, "iconAdvanced");
 	}
+
+	// AUTO SHUTDOWN TIMEOUT 
+	auto shutdownSlider = std::make_shared<SliderComponent>(window, 0.0f, 1440.0f, 10.0f, "min");
+
+	int timeout = 0;
+	try {
+		timeout = std::stoi(SystemConf::getInstance()->get("ee_auto_shutdown_timeout"));
+	} catch (...) {
+		timeout = 0;
+	}
+	shutdownSlider->setValue((float)timeout);
+	s->addWithLabel(_("AUTOMATIC SHUTDOWN AFTER INACTIVITY"), shutdownSlider);
+
+	s->addSaveFunc([shutdownSlider] {
+		int value = (int)shutdownSlider->getValue();
+		SystemConf::getInstance()->set("ee_auto_shutdown_timeout", std::to_string(value));
+		SystemConf::getInstance()->saveSystemConf();
+	});
+
 #endif
+
 
 	if (quickAccessMenu)
 		s->addGroup(_("QUIT"));

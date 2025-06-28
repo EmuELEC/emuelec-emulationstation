@@ -298,7 +298,7 @@ bool loadSystemConfigFile(Window* window, const char** errorString)
 		LOG(LogError) << "No systems found! Does at least one system have a game present? (check that extensions match!)\n(Also, make sure you've updated your es_systems.cfg for XML!)";
 		*errorString = "WE CAN'T FIND ANY SYSTEMS!\n"
 			"CHECK THAT YOUR PATHS ARE CORRECT IN THE SYSTEMS CONFIGURATION FILE, "
-			"AND YOUR GAME DIRECTORY HAS AT LEAST ONE GAME WITH THE CORRECT EXTENSION.\n\n"
+			"AND YOUR GAME directory HAS AT LEAST ONE GAME WITH THE CORRECT EXTENSION.\n\n"
 			"VISIT EMULATIONSTATION.ORG FOR MORE INFORMATION.";
 		return false;
 	}
@@ -649,8 +649,28 @@ int main(int argc, char* argv[])
 		timeLimit = 0;
 #endif
 
+	// load auto-shutdown configuration from emuelec.conf
+	int autoShutdownTimeoutMin = 0;
+	std::string confTimeoutStr = SystemConf::getInstance()->get("ee_auto_shutdown_timeout");
+	if (!confTimeoutStr.empty())
+	{
+		try {
+			autoShutdownTimeoutMin = std::stoi(confTimeoutStr);
+			if (autoShutdownTimeoutMin < 0) autoShutdownTimeoutMin = 0;
+		} catch (...) {
+			LOG(LogError) << "[AutoShutdown] Invalid value in ee_auto_shutdown_timeout: " << confTimeoutStr;
+			autoShutdownTimeoutMin = 0;
+		}
+		
+		if (autoShutdownTimeoutMin > 0) {
+			LOG(LogInfo) << "[AutoShutdown] auto-shutdown activated: " << autoShutdownTimeoutMin << " minutes of inactivity";
+		}
+	}
+
 	int lastTime = SDL_GetTicks();
 	int ps_time = SDL_GetTicks();
+	unsigned long lastInputTime = (unsigned long)time(nullptr);
+	unsigned int lastShutdownCheck = SDL_GetTicks();
 
 	bool running = true;
 
@@ -659,52 +679,67 @@ int main(int argc, char* argv[])
 #ifdef WIN32	
 		int processStart = SDL_GetTicks();
 #endif
+SDL_Event event;
 
-		SDL_Event event;
+bool ps_standby = PowerSaver::getState() && (int) SDL_GetTicks() - ps_time > PowerSaver::getMode();
+if (ps_standby ? SDL_WaitEventTimeout(&event, PowerSaver::getTimeout()) : SDL_PollEvent(&event))
+{
+	// PowerSaver can push events to exit SDL_WaitEventTimeout immediatly
+	// Reset this event's state
+	TRYCATCH("resetRefreshEvent", PowerSaver::resetRefreshEvent());
 
-		bool ps_standby = PowerSaver::getState() && (int) SDL_GetTicks() - ps_time > PowerSaver::getMode();
-		if(ps_standby ? SDL_WaitEventTimeout(&event, PowerSaver::getTimeout()) : SDL_PollEvent(&event))
+	do
+	{
+		TRYCATCH("InputManager::parseEvent", InputManager::getInstance()->parseEvent(event, &window));
+
+		
+		if (event.type == SDL_KEYDOWN ||
+			event.type == SDL_CONTROLLERBUTTONDOWN ||
+			event.type == SDL_JOYBUTTONDOWN ||
+			event.type == SDL_MOUSEBUTTONDOWN ||
+			event.type == SDL_MOUSEMOTION)
 		{
-			// PowerSaver can push events to exit SDL_WaitEventTimeout immediatly
-			// Reset this event's state
-			TRYCATCH("resetRefreshEvent", PowerSaver::resetRefreshEvent());
-
-			do
-			{
-				TRYCATCH("InputManager::parseEvent", InputManager::getInstance()->parseEvent(event, &window));
-
-				if (event.type == SDL_QUIT)
-					running = false;
-			} 
-			while(SDL_PollEvent(&event));
-
-			// check guns
-			InputManager::getInstance()->updateGuns(&window);
-
-			// triggered if exiting from SDL_WaitEvent due to event
-			if (ps_standby)
-				// show as if continuing from last event
-				lastTime = SDL_GetTicks();
-
-			// reset counter
-			ps_time = SDL_GetTicks();
-		}
-		else if (ps_standby == false)
-		{
-		  // check guns
-		  InputManager::getInstance()->updateGuns(&window);
-
-		  // If exitting SDL_WaitEventTimeout due to timeout. Trail considering
-		  // timeout as an event
-		  //	ps_time = SDL_GetTicks();
+			lastInputTime = (unsigned long)time(nullptr);
 		}
 
-		if (window.isSleeping())
-		{
-			lastTime = SDL_GetTicks();
-			SDL_Delay(1); // this doesn't need to be accurate, we're just giving up our CPU time until something wakes us up
-			continue;
-		}
+		if (event.type == SDL_QUIT)
+			running = false;
+
+	} while(SDL_PollEvent(&event));  
+
+	// check guns
+	InputManager::getInstance()->updateGuns(&window);
+
+	// triggered if exiting from SDL_WaitEvent due to event
+	if (ps_standby)
+		lastTime = SDL_GetTicks();
+
+	// reset counter
+	ps_time = SDL_GetTicks();
+}
+else if (!ps_standby)
+{
+	// check guns
+	InputManager::getInstance()->updateGuns(&window);
+}
+
+
+	static bool wasSleeping = false;
+
+if (window.isSleeping())
+{
+	wasSleeping = true;
+	lastTime = SDL_GetTicks();
+	SDL_Delay(1);
+	continue;
+}
+else if (wasSleeping)
+{
+	// user has exited the emulator
+	lastInputTime = (unsigned long)time(nullptr);
+	wasSleeping = false;
+}
+
 
 		int curTime = SDL_GetTicks();
 		int deltaTime = curTime - lastTime;
@@ -713,6 +748,34 @@ int main(int argc, char* argv[])
 		// cap deltaTime if it ever goes negative
 		if(deltaTime < 0)
 			deltaTime = 1000;
+		
+		// Check for return-from-game signal from emuelecRunEmu.sh
+		if (Utils::FileSystem::exists("/tmp/es_return_from_game"))
+{
+		lastInputTime = (unsigned long)time(nullptr);
+		Utils::FileSystem::removeFile("/tmp/es_return_from_game");
+}
+
+		// Auto-Shutdown Check (every 10 seconds)
+		if (autoShutdownTimeoutMin > 0 && (curTime - lastShutdownCheck) >= 10000) // 10 seconds
+		{
+			lastShutdownCheck = curTime;
+			
+			unsigned long now = (unsigned long)time(nullptr);
+			unsigned long timeoutSec = autoShutdownTimeoutMin * 60;
+			unsigned long inactiveTime = now - lastInputTime;
+
+			if (inactiveTime >= timeoutSec)
+			{
+				Utils::Platform::quitES(Utils::Platform::QuitMode::SHUTDOWN);
+				running = false; 
+			}
+			else if ((timeoutSec - inactiveTime) <= 60) 
+			{
+				unsigned long remainingTime = (timeoutSec - inactiveTime);
+				
+			}
+		}
 
 		TRYCATCH("Window.update" ,window.update(deltaTime))	
 		TRYCATCH("Window.render", window.render())
@@ -760,6 +823,7 @@ int main(int argc, char* argv[])
 #ifdef FREEIMAGE_LIB
 	FreeImage_DeInitialise();
 #endif
+	
 	
 	// Delete ViewController
 	while (window.peekGui() != nullptr)
