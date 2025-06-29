@@ -32,9 +32,6 @@
 #include <algorithm>
 #include "utils/Platform.h"
 #include "utils/StringUtil.h"
-
-
-
 #include "SystemConf.h"
 #include "ApiSystem.h"
 #include "InputManager.h"
@@ -4943,7 +4940,6 @@ void GuiMenu::openQuitMenu_static(Window *window, bool quickAccessMenu, bool ani
 	});
 
 #endif
-
 
 	if (quickAccessMenu)
 		s->addGroup(_("QUIT"));

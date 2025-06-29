@@ -679,6 +679,7 @@ int main(int argc, char* argv[])
 #ifdef WIN32	
 		int processStart = SDL_GetTicks();
 #endif
+
 SDL_Event event;
 
 bool ps_standby = PowerSaver::getState() && (int) SDL_GetTicks() - ps_time > PowerSaver::getMode();
@@ -757,25 +758,47 @@ else if (wasSleeping)
 }
 
 		// Auto-Shutdown Check (every 10 seconds)
-		if (autoShutdownTimeoutMin > 0 && (curTime - lastShutdownCheck) >= 10000) // 10 seconds
-		{
-			lastShutdownCheck = curTime;
-			
-			unsigned long now = (unsigned long)time(nullptr);
-			unsigned long timeoutSec = autoShutdownTimeoutMin * 60;
-			unsigned long inactiveTime = now - lastInputTime;
+		if ((curTime - lastShutdownCheck) >= 10000) // 10 seconds
+{
+	lastShutdownCheck = curTime;
 
-			if (inactiveTime >= timeoutSec)
-			{
-				Utils::Platform::quitES(Utils::Platform::QuitMode::SHUTDOWN);
-				running = false; 
-			}
-			else if ((timeoutSec - inactiveTime) <= 60) 
-			{
-				unsigned long remainingTime = (timeoutSec - inactiveTime);
-				
-			}
+		// Dynamically reload the timeout value from emuelec.conf
+	int autoShutdownTimeoutMin = 0;
+	std::string confTimeoutStr = SystemConf::getInstance()->get("ee_auto_shutdown_timeout");
+	if (!confTimeoutStr.empty())
+	{
+		try {
+			autoShutdownTimeoutMin = std::stoi(confTimeoutStr);
+			if (autoShutdownTimeoutMin < 0) autoShutdownTimeoutMin = 0;
+		} catch (...) {
+			LOG(LogError) << "[AutoShutdown] Invalid value in ee_auto_shutdown_timeout: " << confTimeoutStr;
+			autoShutdownTimeoutMin = 0;
 		}
+	}
+
+	if (autoShutdownTimeoutMin > 0)
+	{
+		unsigned long now = (unsigned long)time(nullptr);
+		unsigned long timeoutSec = autoShutdownTimeoutMin * 60;
+		unsigned long inactiveTime = now - lastInputTime;
+
+		if (inactiveTime >= timeoutSec)
+		{
+			LOG(LogInfo) << "[AutoShutdown] Inactivity timeout reached ("
+						<< autoShutdownTimeoutMin << " min, "
+						<< (inactiveTime / 60) << " min inactive). Shutting down system...";
+			Utils::Platform::quitES(Utils::Platform::QuitMode::SHUTDOWN);
+			running = false;
+		}
+		else if ((timeoutSec - inactiveTime) <= 60)
+		{
+			unsigned long remainingTime = (timeoutSec - inactiveTime);
+			LOG(LogInfo) << "[AutoShutdown] Warning: System will shut down in "
+						<< remainingTime << " seconds due to inactivity.";
+		}
+	}
+}
+
 
 		TRYCATCH("Window.update" ,window.update(deltaTime))	
 		TRYCATCH("Window.render", window.render())
