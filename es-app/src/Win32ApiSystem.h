@@ -19,7 +19,7 @@ public:
 	std::string getFreeSpaceInfo(const std::string dir);
 	std::string getFreeSpaceUserInfo() override;
 	std::string getFreeSpaceSystemInfo() override;	
-	std::vector<std::string> getVideoModes() override;
+	std::vector<std::string> getVideoModes(const std::string output = "") override;
 
 	void setReadyFlag(bool ready = true) override;
 	bool isReadyFlagSet() override;
@@ -47,6 +47,7 @@ public:
 
 	virtual bool isPlaneMode() override;
 	virtual bool setPlaneMode(bool enable) override;
+	virtual bool forgetBluetoothControllers() override;
 
 protected:
 

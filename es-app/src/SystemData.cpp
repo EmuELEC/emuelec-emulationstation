@@ -50,6 +50,8 @@ static std::map<std::string, std::function<BindableProperty(SystemData*)>> prope
 	{ "showFavorites",      [] (SystemData* sys) { return sys->getShowFavoritesIcon(); } },
 	{ "showGun",            [] (SystemData* sys) { return sys->getBoolSetting("ShowGunIconOnGames"); } },
 	{ "showWheel",          [] (SystemData* sys) { return sys->getBoolSetting("ShowWheelIconOnGames"); } },
+	{ "showTrackball",      [] (SystemData* sys) { return sys->getBoolSetting("ShowTrackballIconOnGames"); } },
+	{ "showSpinner",      [] (SystemData* sys) { return sys->getBoolSetting("ShowSpinnerIconOnGames"); } },
 	{ "showParentFolder",   [] (SystemData* sys) { return sys->getShowParentFolder(); } },
 	{ "hasKeyboardMapping", [] (SystemData* sys) { return sys->hasKeyboardMapping(); } },
 	{ "isCheevosSupported", [] (SystemData* sys) { return sys->isCheevosSupported(); } },
@@ -402,6 +404,13 @@ void SystemData::createGroupedSystems()
 
 	for (auto item : map)
 	{	
+		// Don't group if system count is only 1 		
+		if (item.second.size() == 1 && Settings::getInstance()->HideUniqueGroups())
+		{
+			item.second[0]->getSystemEnvData()->mGroup = "";
+			continue;
+		}
+		
 		SystemData* system = nullptr;
 		bool existingSystem = false;
 
@@ -427,7 +436,7 @@ void SystemData::createGroupedSystems()
 			md.fullName = item.first;
 			md.themeFolder = item.first;
 
-			// Check if the system is described in es_systems but empty, to import metadatas )
+			// Check if the system is described in es_systems but empty, to import metadata )
 			auto sourceSystem = SystemData::loadSystem(item.first, false);
 			if (sourceSystem != nullptr)
 			{
@@ -865,7 +874,7 @@ bool SystemData::loadConfig(Window* window)
 			std::string fullname = system.child("fullname").text().get();
 
 			if (window != NULL)
-				window->renderSplashScreen(fullname, systemCount == 0 ? 0 : (float)currentSystem / (float)(systemCount + 1));
+				window->renderSplashScreen(fullname, systemCount == 0 ? 0 : (float)currentSystem / (float)(systemCount + 2));
 
 			std::string nm = system.child("name").text().get();
 
@@ -885,7 +894,7 @@ bool SystemData::loadConfig(Window* window)
 			{
 				int px = processedSystem - 1;
 				if (px >= 0 && px < systemsNames.size())
-					window->renderSplashScreen(systemsNames.at(px), (float)px / (float)(systemCount + 1));
+					window->renderSplashScreen(systemsNames.at(px), (float)px / (float)(systemCount + 2));
 			}, 50);
 		}
 		else
@@ -902,12 +911,12 @@ bool SystemData::loadConfig(Window* window)
 		delete pThreadPool;
 
 		if (window != NULL)
-			window->renderSplashScreen(_("Collections"), systemCount == 0 ? 0 : currentSystem / systemCount);
+			window->renderSplashScreen(_("Collections"), systemCount == 0 ? 0 : currentSystem / (float)(systemCount + 1));
 	}
 	else
 	{
 		if (window != NULL)
-			window->renderSplashScreen(_("Collections"), systemCount == 0 ? 0 : currentSystem / systemCount);
+			window->renderSplashScreen(_("Collections"), systemCount == 0 ? 0 : currentSystem / (float)(systemCount + 1));
 
 		CollectionSystemManager::get()->loadCollectionSystems();
 	}
@@ -1043,28 +1052,28 @@ SystemData* SystemData::loadSystem(pugi::xml_node system, bool fullMode)
 	// platform id list
 	std::string platformList = system.child("platform").text().get();
 	std::vector<std::string> platformStrs = readList(platformList);
-	std::vector<PlatformIds::PlatformId> platformIds;
+	std::set<PlatformIds::PlatformId> platformIds;
 	for (auto it = platformStrs.cbegin(); it != platformStrs.cend(); it++)
 	{
 		const char* str = it->c_str();
-		PlatformIds::PlatformId platformId = PlatformIds::getPlatformId(str);
 
+		PlatformIds::PlatformId platformId = PlatformIds::getPlatformId(str);
 		if (platformId == PlatformIds::PLATFORM_IGNORE)
 		{
 			// when platform is ignore, do not allow other platforms
 			platformIds.clear();
 
 			if (md.name == "imageviewer")
-				platformIds.push_back(PlatformIds::IMAGEVIEWER);
+				platformIds.insert(PlatformIds::IMAGEVIEWER);
 			else
-				platformIds.push_back(platformId);
+				platformIds.insert(platformId);
 
 			break;
 		}
 
 		// if there appears to be an actual platform ID supplied but it didn't match the list, warn
 		if (platformId != PlatformIds::PLATFORM_UNKNOWN)
-			platformIds.push_back(platformId);
+			platformIds.insert(platformId);
 		else if (str != NULL && str[0] != '\0' && platformId == PlatformIds::PLATFORM_UNKNOWN)
 			LOG(LogWarning) << "  Unknown platform for system \"" << md.name << "\" (platform \"" << str << "\" from list \"" << platformList << "\")";
 	}
@@ -1407,6 +1416,8 @@ GameCountInfo* SystemData::getGameCountInfo()
 	mGameCountInfo->playTime = 0;
 	
 	int mostPlayCount = 0;
+	long gameTime = 0;
+	std::string mostCountPlayed;
 
 	for (auto game : games)
 	{
@@ -1421,22 +1432,33 @@ GameCountInfo* SystemData::getGameCountInfo()
 		{
 			mGameCountInfo->gamesPlayed++;
 			mGameCountInfo->playCount += playCount;
-
+			
 			if (playCount > mostPlayCount)
 			{
-				mGameCountInfo->mostPlayed = game->getName();
+				mostCountPlayed = game->getName();
 				mostPlayCount = playCount;
 			}
 		}
 
 		long seconds = atol(game->getMetadata(MetaDataId::GameTime).c_str());
 		if (seconds > 0)
+		{
 			mGameCountInfo->playTime += seconds;
+			
+			if (seconds > gameTime)
+			{
+				mGameCountInfo->mostPlayed = game->getName();
+				gameTime = seconds;
+			}
+		}
 
 		auto lastPlayed = game->getMetadata(MetaDataId::LastPlayed);
 		if (!lastPlayed.empty() && lastPlayed > mGameCountInfo->lastPlayedDate)
 			mGameCountInfo->lastPlayedDate = lastPlayed;
 	}
+
+	if (mGameCountInfo->mostPlayed.empty() && !mostCountPlayed.empty())
+		mGameCountInfo->mostPlayed = mostCountPlayed;
 
 	return mGameCountInfo;
 	/*
@@ -1667,13 +1689,13 @@ bool SystemData::isCheevosSupported()
 			const std::set<std::string> cheevosSystems = {
 				"megadrive", "n64", "snes", "gb", "gba", "gbc", "nes", "fds", "pcengine", "segacd", "sega32x", "mastersystem",
 				"atarilynx", "lynx", "ngp", "gamegear", "pokemini", "atari2600", "fbneo", "fbn", "virtualboy", "pcfx", "tg16", "famicom", "msx1",
-				"psx", "sg-1000", "sg1000", "coleco", "colecovision", "atari7800", "wonderswan", "pc88", "saturn", "3do", "apple2", "neogeo", "arcade", "mame",
-				"nds", "arcade", "megadrive-japan", "pcenginecd", "supergrafx", "supervision", "snes-msu1", "amstradcpc",
-				"dreamcast", "psp", "jaguar", "intellivision", "vectrex", "megaduck", "arduboy", "wasm4", "ps2"
+				"psx", "sg-1000", "sg1000", "coleco", "colecovision", "atari7800", "wonderswan", "pc88", "saturn", "3do", "apple2", "neogeo",
+				"arcade", "mame", "nds", "arcade", "megadrive-japan", "pcenginecd", "supergrafx", "supervision", "snes-msu1", "amstradcpc",
+				"dreamcast", "psp", "jaguar", "intellivision", "vectrex", "megaduck", "arduboy", "wasm4", "ps2", "gamecube", "wii", "channelf",
 #ifdef _ENABLEEMUELEC 
-                ,"genesis", "msx", "sfc"
+                "genesis", "msx", "sfc",
 #endif
-                };
+				"o2em", "uzebox" };
 
 
 			if (cheevosSystems.find(getName()) != cheevosSystems.cend())

@@ -124,6 +124,7 @@ public:
 		SERVICES = 28,
 		READPLANEMODE = 29,
 		WRITEPLANEMODE = 30,
+		BACKGLASS = 31,
 	};
 
 	virtual bool isScriptingSupported(ScriptId script);
@@ -165,24 +166,28 @@ public:
     bool enableWifi(std::string ssid, std::string key);
     bool disableWifi();
 
-	virtual std::string getIpAdress();
+	virtual std::string getIpAddress();
 
-	void startBluetoothLiveDevices(const std::function<void(const std::string)>& func);
-	void stopBluetoothLiveDevices();
-	bool pairBluetoothDevice(const std::string& deviceName);
-	bool removeBluetoothDevice(const std::string& deviceName);
-
-	std::vector<std::string> getPairedBluetoothDeviceList();
-
-	// Obsolete
-    bool scanNewBluetooth(const std::function<void(const std::string)>& func = nullptr);
+	// BlueTooth methods
+	virtual bool enableBluetooth();
+	virtual bool disableBluetooth();
+	virtual void startBluetoothLiveDevices(const std::function<void(const std::string)>& func);
+	virtual void stopBluetoothLiveDevices();
+	virtual bool pairBluetoothDevice(const std::string& deviceName);
+	virtual bool connectBluetoothDevice(const std::string& deviceName);
+	virtual bool disconnectBluetoothDevice(const std::string& deviceName);
+	virtual bool removeBluetoothDevice(const std::string& deviceName);
+	virtual bool forgetBluetoothControllers();
+	virtual std::vector<std::string> getPairedBluetoothDeviceList();	
+    virtual bool scanNewBluetooth(const std::function<void(const std::string)>& func = nullptr); // Obsolete
 
     std::vector<std::string> getAvailableBackupDevices();
     std::vector<std::string> getAvailableInstallDevices();
     std::vector<std::string> getAvailableInstallArchitectures();
     std::vector<std::string> getAvailableOverclocking();
     std::vector<BiosSystem> getBiosInformations(const std::string system = "");
-    virtual std::vector<std::string> getVideoModes();
+    virtual std::vector<std::string> getVideoModes(const std::string output = "");
+	std::vector<std::string> getCustomRunners();
 
 	virtual std::vector<std::string> getAvailableStorageDevices();
 	virtual std::vector<std::string> getSystemInformations();
@@ -195,9 +200,7 @@ public:
 
 	bool setButtonColorGameForce(std::string basic_string);
 
-	bool setPowerLedGameForce(std::string basic_string);
-
-    bool forgetBluetoothControllers();
+	bool setPowerLedGameForce(std::string basic_string);    
 
     /* audio card */
     bool setAudioOutputDevice(std::string device);
@@ -242,6 +245,15 @@ public:
 	bool	getBrightness(int& value);
 	void	setBrightness(int value);
 
+	// LED RGB sliders
+	bool getLED(int& red, int& green, int& blue);
+	void getLEDColours(int& red, int& green, int& blue);
+	void setLEDColours(int red, int green, int blue);
+
+	// LED Brightness
+	bool getLEDBrightness(int& value);
+	void setLEDBrightness(int value);
+
 	std::vector<std::string> getWifiNetworks(bool scan = false);
 
 	bool downloadFile(const std::string url, const std::string fileName, const std::string label = "", const std::function<void(const std::string)>& func = nullptr);
@@ -267,15 +279,18 @@ public:
 	virtual void suspend();
 
   	virtual void replugControllers_sindenguns();
-    virtual void replugControllers_wiimotes();
-    virtual void replugControllers_steamdeckguns();
+	virtual void replugControllers_wiimotes();
+	virtual void replugControllers_steamdeckguns();
 
-    virtual bool isPlaneMode();
-    virtual bool setPlaneMode(bool enable);
+	virtual bool isPlaneMode();
+	virtual bool setPlaneMode(bool enable);
 	virtual bool isReadPlaneModeSupported();
 
-    virtual std::vector<Service> getServices();
-    virtual bool enableService(std::string name, bool enable);
+	virtual std::vector<Service> getServices();
+	virtual bool enableService(std::string name, bool enable);
+
+	virtual std::vector<std::string> backglassThemes();
+	virtual void restartBackglass();
 
 protected:
 	ApiSystem();

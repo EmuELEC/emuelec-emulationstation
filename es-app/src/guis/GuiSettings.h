@@ -12,18 +12,26 @@ class GuiSettings : public GuiComponent
 {
 public:
 	GuiSettings(Window* window, 
-		const std::string title,
-		const std::string customButton = "",
+		const std::string& title,
+		const std::string& customButton = "",
 		const std::function<void(GuiSettings*)>& func = nullptr,
-		bool animate = false);
+		bool animate = false,
+		bool tabbedUI = false);
+	GuiSettings(Window* window, const std::string& title, bool tabbedUI);
+
 	virtual ~GuiSettings(); // just calls save();
 
 	void save();
 	void close();
 
 	inline void setUpdateType(ComponentListFlags::UpdateType updateType) 
-	{ 
+	{ 		
 		mMenu.setUpdateType(updateType); 
+	}
+
+	inline void clear()
+	{
+		mMenu.clear();
 	}
 
 	inline void addRow(const ComponentListRow& row) 
@@ -31,10 +39,24 @@ public:
 		mMenu.addRow(row); 
 	}
 
-	inline void addWithLabel(const std::string& label, const std::shared_ptr<GuiComponent>& comp, bool setCursorHere = false) 
-	{ 
-		mMenu.addWithLabel(label, comp, nullptr, "", setCursorHere); 
-	}
+	// Old call remains compatible
+	inline void addWithLabel(const std::string& label,
+    const std::shared_ptr<GuiComponent>& comp,
+    bool setCursorHere = false)
+{
+    addWithLabel(label, comp, nullptr, "", setCursorHere);
+}
+
+	// New overload with icon and optional callback
+	inline void addWithLabel(const std::string& label,
+    const std::shared_ptr<GuiComponent>& comp,
+    const std::function<void()>& callback,
+    const std::string& iconName,
+    bool setCursorHere = false)
+{
+    mMenu.addWithLabel(label, comp, callback, iconName, setCursorHere);
+}
+
 
 	inline void addWithDescription(const std::string& label, const std::string& description, const std::shared_ptr<GuiComponent>& comp, bool setCursorHere = false) 
 	{ 
@@ -110,8 +132,17 @@ public:
 	bool checkNetwork();
 
 	virtual bool onMouseClick(int button, bool pressed, int x, int y);
+	
+	// Tabs
+	void addTab(const std::string label, const std::string value = "", bool setCursorHere = false) { mMenu.addTab(label, value, setCursorHere); }
+	void setOnTabIndexChanged(const std::function<void()>& callback);
+	int getTabIndex();
 
-protected:
+	void clearSaveFuncs() { mSaveFuncs.clear(); }
+
+protected:		
+	virtual void OnTabChanged(int newIndex) { };
+
 	MenuComponent mMenu;
 
 private:

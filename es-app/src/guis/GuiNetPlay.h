@@ -67,7 +67,7 @@ struct LobbyAppEntry
 class GuiNetPlay : public GuiComponent 
 {
 public:
-	GuiNetPlay(Window *window);
+	GuiNetPlay(Window* window);
 	~GuiNetPlay();
 
 	void update(int deltaTime) override;
@@ -81,7 +81,7 @@ public:
 
 private:
 	void startRequest();
-
+	
 	bool populateFromJson(const std::string json);
 	bool populateFromLan();
 

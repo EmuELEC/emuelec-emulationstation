@@ -95,7 +95,7 @@ const std::map<PlatformId, unsigned short> screenscraper_platformid_map{
 	{ PLAYSTATION, 57 },
 	{ PLAYSTATION_2, 58 },
 	{ PLAYSTATION_3, 59 },
-	// missing Sony Playstation 4 ?
+	{ PLAYSTATION_4, 60 },
 	{ PLAYSTATION_VITA, 62 },
 	{ PLAYSTATION_PORTABLE, 61 },
 	{ SUPER_NINTENDO, 4 },
@@ -108,6 +108,7 @@ const std::map<PlatformId, unsigned short> screenscraper_platformid_map{
 	{ VECTREX, 102 },
 	{ TRS80_COLOR_COMPUTER, 144 },
 	{ TANDY, 144 },
+	{ DRAGON32, 91 },
 	{ SUPERGRAFX, 105 },
 	{ GP32, 101},
 
@@ -135,7 +136,7 @@ const std::map<PlatformId, unsigned short> screenscraper_platformid_map{
 	{ VISUALPINBALL, 198 },
 	{ FUTUREPINBALL, 199 },
 	
-	{ TEKNOPARROT, 138 }, // Use "PC Windows", as it's the nearest
+	{ TEKNOPARROT, 269 }, // Screenscraper now has Teknoparrot platform
 
 	// Misc
 	{ VIC20, 73 },
@@ -170,6 +171,7 @@ const std::map<PlatformId, unsigned short> screenscraper_platformid_map{
 	{ FMTOWNS, 253 },
 	{ FUJITSU_FM7, 97 },
 	{ CASIO_PV1000, 74 },
+	{ CASIO_LOOPY, 98 },
 	{ TIGER_GAMECOM, 121 },
 	{ ENTEX_ADVENTURE_VISION, 78 },
 	{ EMERSON_ARCADIA_2001, 94 },
@@ -181,8 +183,11 @@ const std::map<PlatformId, unsigned short> screenscraper_platformid_map{
 	{ CAMPUTER_LYNX, 88 },
 	{ EPOCH_GAMEPOCKET, 95 },
 	{ WASM4, 262 },
+	{ VIRCON32, 272 },
 	{ GAMATE, 266 },
-	{ ARDUBOY, 263 }
+	{ ARDUBOY, 263 },
+	{ LOWRESNX, 244 },
+	{ VC4000, 281 }
 };
 
 const std::set<Scraper::ScraperMediaSource>& ScreenScraperScraper::getSupportedMedias()
@@ -200,6 +205,7 @@ const std::set<Scraper::ScraperMediaSource>& ScreenScraperScraper::getSupportedM
 		ScraperMediaSource::BoxBack,
 		ScraperMediaSource::TitleShot,
 		ScraperMediaSource::Wheel,
+		ScraperMediaSource::WheelHD,
 		ScraperMediaSource::Marquee,
 		ScraperMediaSource::Mix,
 		ScraperMediaSource::Manual,
@@ -427,6 +433,8 @@ std::vector<std::string> ScreenScraperRequest::getRipList(std::string imageSourc
 		return { "box-3D", "box-2D" };
 	if (imageSource == "wheel")
 		return { "wheel", "wheel-hd", "wheel-steel", "wheel-carbon", "screenmarqueesmall", "screenmarquee" };
+	if (imageSource == "wheel-hd")
+		return { "wheel-hd", "wheel", "wheel-steel", "wheel-carbon", "screenmarqueesmall", "screenmarquee" };
 	if (imageSource == "marquee")
 		return { "screenmarqueesmall", "screenmarquee", "wheel", "wheel-hd", "wheel-steel", "wheel-carbon" };
 	if (imageSource == "video")

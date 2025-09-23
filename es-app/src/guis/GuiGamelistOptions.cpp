@@ -100,7 +100,6 @@ GuiGamelistOptions::GuiGamelistOptions(Window* window, IGameListView* gamelist, 
 			{
 				mJumpToLetterList = std::make_shared<LetterList>(mWindow, _("JUMP TO GAME BEGINNING WITH THE LETTER"), false);
 
-				
 #ifdef _ENABLEEMUELEC				
 				unsigned int sortId = system->getSortId();
 				std::string cursorName = (sortId == FileSorts::SORTNAME_ASCENDING || sortId == FileSorts::SORTNAME_DESCENDING)

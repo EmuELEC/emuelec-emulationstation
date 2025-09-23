@@ -28,6 +28,8 @@ private:
 
 	bool mShowGunIcon;
   	bool mShowWheelIcon;
+    	bool mShowTrackballIcon;
+      	bool mShowSpinnerIcon;
 
 	int mShowFlags;
 };

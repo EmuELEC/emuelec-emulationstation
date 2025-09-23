@@ -87,6 +87,7 @@ namespace PlatformIds
 		{ "vectrex",				VECTREX },
 		{ "trs-80",					TRS80_COLOR_COMPUTER },
 		{ "coco",					TANDY },
+		{ "dragon32",				DRAGON32 },
 		{ "supergrafx",				SUPERGRAFX },
 		{ "amigacd32",				AMIGACD32 },
 		{ "amigacdtv",				AMIGACDTV },
@@ -105,6 +106,7 @@ namespace PlatformIds
 		{ "zx81",					ZX81 },
 		{ "tic80",					TIC80 },
 		{ "gp32",					GP32 },
+		{ "chihiro",				SEGA_CHIHIRO },
 
 		// batocera specific names
 		{ "gb2players",				GAME_BOY },
@@ -138,13 +140,14 @@ namespace PlatformIds
 		{ "palm",					PALMOS },
 		{ "daphne",					DAPHNE },
 		{ "solarus",				SOLARUS },
-
+		{ "lowresnx",				LOWRESNX },
 		{ "vic20",					VIC20 },
 		{ "c20",					VIC20 },
 		{ "ti99",					TI99 },
 		{ "ti99_4a",				TI99 },
 		{ "pico8",					PICO8 },
 		{ "sgb",					SUPER_GAME_BOY },
+		{ "vc4000",					VC4000 },
 
 		{ "watara",					WATARA_SUPERVISION },
 		{ "supervision",			WATARA_SUPERVISION },
@@ -172,6 +175,7 @@ namespace PlatformIds
 		{ "cdi",					PHILIPS_CDI },			
 		{ "fm7",					FUJITSU_FM7 },
 		{ "pv1000",					CASIO_PV1000 },
+		{ "loopy",					CASIO_LOOPY },
 		{ "gamecom",				TIGER_GAMECOM },
 		{ "advision",				ENTEX_ADVENTURE_VISION },			
 		{ "arcadia",				EMERSON_ARCADIA_2001 },
@@ -192,6 +196,7 @@ namespace PlatformIds
 		{ "camplynx",				CAMPUTER_LYNX },
 		{ "gamepock",				EPOCH_GAMEPOCKET },	
 		{ "wasm4",					WASM4 },
+		{ "vircon32",				VIRCON32 },
 		{ "vis",					TANDY_VIS },
 			
 		{ "pcarcade",				TEKNOPARROT },

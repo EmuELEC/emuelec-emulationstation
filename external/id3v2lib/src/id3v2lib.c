@@ -43,7 +43,7 @@ ID3v2_tag* load_tag(const char* file_name)
         return NULL;
     }
     //fseek(file, 10, SEEK_SET);
-    size_t bytesRead = fread(buffer, header_size + 10, 1, file);
+    size_t bytesRead = fread(buffer, header_size+10, 1, file);
     if (bytesRead != 1)
     {
         perror("Error reading file");

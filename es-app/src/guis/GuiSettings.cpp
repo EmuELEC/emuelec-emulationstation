@@ -12,13 +12,19 @@
 #include "components/SwitchComponent.h"
 #include "components/OptionListComponent.h"
 
+GuiSettings::GuiSettings(Window* window, const std::string& title, bool tabbedUI) : GuiSettings(window, title, "", nullptr, false, tabbedUI) { }
+
 GuiSettings::GuiSettings(Window* window, 
-	const std::string title,
-	const std::string customButton,
+	const std::string& title,
+	const std::string& customButton,
 	const std::function<void(GuiSettings*)>& func,
-	bool animate) : GuiComponent(window), mMenu(window, title)
+	bool animate,
+	bool tabbedUI) : GuiComponent(window), mMenu(window, title, Font::get(FONT_SIZE_LARGE), "", tabbedUI)
 {
 	addChild(&mMenu);
+
+	if (tabbedUI)
+		mMenu.setOnTabIndexChanged([this] { OnTabChanged(mMenu.getTabIndex()); });
 
 	mCloseButton = "start";
 
@@ -46,6 +52,16 @@ GuiSettings::GuiSettings(Window* window,
 		else
 			mMenu.setPosition((mSize.x() - mMenu.getSize().x()) / 2, Renderer::getScreenHeight() * 0.15f);
 	}	
+}
+
+void GuiSettings::setOnTabIndexChanged(const std::function<void()>& callback)
+{
+	mMenu.setOnTabIndexChanged(callback);
+}
+
+int GuiSettings::getTabIndex()
+{
+	return mMenu.getTabIndex();
 }
 
 GuiSettings::~GuiSettings()
@@ -215,10 +231,14 @@ void GuiSettings::addInputTextRow(const std::string& title, const std::string& s
 	}; // ok callback (apply new value to ed)
 
 	bool localStoreInSettings = storeInSettings;
-	row.makeAcceptInputHandler([this, title, updateVal, localSettingsID, localStoreInSettings, customEditor]
+	row.makeAcceptInputHandler([this, title, updateVal, localSettingsID, localStoreInSettings, customEditor, password]
 	{
 		std::string data = localStoreInSettings ? Settings::getInstance()->getString(localSettingsID) : SystemConf::getInstance()->get(localSettingsID);
 
+#ifdef BATOCERA
+		if (password && (SystemConf::getInstance()->get("system.security.enabled") == "1"))
+			data.clear();
+#endif
 		if (customEditor != nullptr)
 			customEditor(mWindow, title, data, updateVal);
 		else if (Settings::getInstance()->getBool("UseOSK"))
@@ -338,7 +358,7 @@ std::shared_ptr<OptionListComponent<std::string>> GuiSettings::addOptionList(con
 
 bool GuiSettings::checkNetwork()
 {
-	if (ApiSystem::getInstance()->getIpAdress() == "NOT CONNECTED")
+	if (ApiSystem::getInstance()->getIpAddress() == "NOT CONNECTED")
 	{
 		mWindow->pushGui(new GuiMsgBox(mWindow, _("YOU ARE NOT CONNECTED TO A NETWORK"), _("OK"), nullptr));
 		return false;

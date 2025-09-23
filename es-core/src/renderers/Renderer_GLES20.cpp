@@ -45,6 +45,7 @@ namespace Renderer
 	static std::map<unsigned int, TextureInfo*> _textures;
 
 	static unsigned int		boundTexture = 0;
+	static unsigned int		mShaderTexture = 0;	
 
 	extern std::string SHADER_VERSION_STRING;
 
@@ -546,6 +547,24 @@ namespace Renderer
 	void GLES20Renderer::createContext()
 	{
 		sdlContext = SDL_GL_CreateContext(getSDLWindow());
+		
+#if OPENGL_EXTENSIONS
+		if (sdlContext == nullptr)
+		{
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+
+			sdlContext = SDL_GL_CreateContext(getSDLWindow());
+			if (sdlContext == nullptr)
+			{
+				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+
+				sdlContext = SDL_GL_CreateContext(getSDLWindow());
+			}
+		}
+#endif
+
 		SDL_GL_MakeCurrent(getSDLWindow(), sdlContext);
 
 		const std::string vendor     = glGetString(GL_VENDOR)     ? (const char*)glGetString(GL_VENDOR)     : "";
@@ -609,6 +628,12 @@ namespace Renderer
 		}
 
 		_customShaders.clear();
+
+		if (mShaderTexture != 0)
+		{
+			destroyTexture(mShaderTexture);
+			mShaderTexture = 0;
+		}
 
 		if (mFrameBuffer != -1)
 		{
@@ -704,43 +729,38 @@ namespace Renderer
 			}
 		}
 #else
-		// Regular GL_ALPHA textures are black + alpha in shaders
-		// Create a GL_LUMINANCE_ALPHA texture instead so its white + alpha
-
-		if (type == GL_LUMINANCE_ALPHA && _data != nullptr)
+		
+		if (type == GL_LUMINANCE_ALPHA)
 		{
-			uint8_t* a_data  = (uint8_t*)_data;
 			uint8_t* la_data = new uint8_t[_width * _height * 2];
-			memset(la_data, 255, _width * _height * 2);
-			if (a_data)
+						
+			if (_data == nullptr)
+				memset(la_data, 0, _width * _height * 2);
+			else
 			{
-				for(uint32_t i=0; i<(_width * _height); ++i)
+				uint8_t* a_data = (uint8_t*)_data;
+				for (uint32_t i = 0; i < (_width * _height); ++i)
 					la_data[(i * 2) + 1] = a_data[i];
 			}
 
-		//	while (glGetError() != GL_NO_ERROR);
-
 			glTexImage2D(GL_TEXTURE_2D, 0, type, _width, _height, 0, type, GL_UNSIGNED_BYTE, la_data);
 			delete[] la_data;
-
-			if (glGetError() != GL_NO_ERROR)
-			{
-				LOG(LogError) << "CreateTexture error: glTexImage2D failed";
-				destroyTexture(texture);
-				return 0;
-			}
+		}		
+		else if (type == GL_ALPHA && _data == nullptr)
+		{
+			uint8_t* la_data = new uint8_t[_width * _height];
+			memset(la_data, 0, _width * _height);
+			glTexImage2D(GL_TEXTURE_2D, 0, type, _width, _height, 0, type, GL_UNSIGNED_BYTE, la_data);
+			delete[] la_data;
 		}
 		else
-		{
-		//	while (glGetError() != GL_NO_ERROR);
-
 			glTexImage2D(GL_TEXTURE_2D, 0, type, _width, _height, 0, type, GL_UNSIGNED_BYTE, _data);
-			if (glGetError() != GL_NO_ERROR)
-			{
-				LOG(LogError) << "CreateTexture error: glTexImage2D failed";
-				destroyTexture(texture);
-				return 0;
-			}
+
+		if (glGetError() != GL_NO_ERROR)
+		{
+			LOG(LogError) << "CreateTexture error: glTexImage2D failed";
+			destroyTexture(texture);
+			return 0;
 		}
 
 #endif
@@ -1236,7 +1256,33 @@ namespace Renderer
 		int tw = w / textureScale;
 		int th = h / textureScale;
 
-		auto nTextureID = createTexture(Renderer::Texture::RGBA, true, false, tw, th, nullptr);
+		unsigned int nTextureID = 0;
+		
+		if (data != nullptr && (shaderBatch->size() - 1) % 2 == 1)
+		{
+			// It's the texture that will be returned into *data, so we can't cache it and we need to create a new one
+			nTextureID = createTexture(Renderer::Texture::RGBA, true, false, tw, th, nullptr);
+		}
+		else
+		{
+			if (mShaderTexture == 0)
+				mShaderTexture = createTexture(Renderer::Texture::RGBA, true, false, tw, th, nullptr);
+			else
+			{
+				auto it = _textures.find(mShaderTexture);
+				if (it == _textures.cend() || it->second->size.x() != tw || it->second->size.y() != th)
+				{
+					if (it != _textures.cend())
+						it->second->size = Vector2f(tw, th);
+
+					bindTexture(mShaderTexture);
+					glTexImage2D(GL_TEXTURE_2D, 0, convertTextureType(Renderer::Texture::RGBA), tw, th, 0, convertTextureType(Renderer::Texture::RGBA), GL_UNSIGNED_BYTE, nullptr);
+				}				
+			}
+
+			nTextureID = mShaderTexture;
+		}		
+
 		if (nTextureID > 0)
 		{
 			int width = getScreenWidth();
@@ -1304,9 +1350,9 @@ namespace Renderer
 					GL_CHECK_ERROR(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, nTextureID, 0));
 
 					if (getScreenRotate() == 2)
-						GL_CHECK_ERROR(glBlitFramebuffer(x, y, x + w, y + h, 0, 0, tw, th, GL_COLOR_BUFFER_BIT, GL_LINEAR));
+						GL_CHECK_ERROR(glBlitFramebuffer(x, y, x + w, y + h, 0, 0, tw, th, GL_COLOR_BUFFER_BIT, GL_NEAREST));
 					else
-						GL_CHECK_ERROR(glBlitFramebuffer(x, height - y - h, x + w, height - y, 0, 0, tw, th, GL_COLOR_BUFFER_BIT, GL_LINEAR));
+						GL_CHECK_ERROR(glBlitFramebuffer(x, height - y - h, x + w, height - y, 0, 0, tw, th, GL_COLOR_BUFFER_BIT, GL_NEAREST));
 
 					if (shaderBatch->size() == 1 && data == nullptr)
 						GL_CHECK_ERROR(glBindFramebuffer(GL_FRAMEBUFFER, 0));
@@ -1377,7 +1423,9 @@ namespace Renderer
 
 				bool takeFirst = (shaderBatch->size() - 1) % 2 == 1;
 				*data = takeFirst ? nTextureID : nTexture2;
-				destroyTexture(takeFirst ? nTexture2 : nTextureID);
+				
+				if (takeFirst || nTextureID != mShaderTexture)
+					destroyTexture(takeFirst ? nTexture2 : nTextureID);
 			}
 			else
 			{
@@ -1388,7 +1436,8 @@ namespace Renderer
 				if (oldCissors)
 					GL_CHECK_ERROR(glEnable(GL_SCISSOR_TEST));
 
-				destroyTexture(nTextureID);
+				if (nTextureID != mShaderTexture)
+					destroyTexture(nTextureID);
 
 				if (nTexture2 != -1)
 					destroyTexture(nTexture2);

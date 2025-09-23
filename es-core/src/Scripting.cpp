@@ -45,7 +45,9 @@ namespace Scripting
                 psi.waitForExit = false;
                 psi.showWindow = false;
                 psi.run();
-                
+
+                LOG(LogDebug) << "  executing: " << command;
+
                 std::this_thread::yield();
             }
         }
@@ -57,7 +59,7 @@ namespace Scripting
     {
         std::unique_lock<std::mutex> lock(mScriptQueueLock);
 
-        if (command == _lastCommand)
+        if (command == _lastCommand && _lastCommand.find("-selected") != std::string::npos)
             return;
 
         _lastCommand = command;
@@ -79,7 +81,11 @@ namespace Scripting
 #endif
     }
 
-    static void executeScript(const std::string& script, const std::string& eventName, const std::string& arg1, const std::string& arg2, const std::string& arg3)
+    static std::set<std::string> _asyncEvents = { "game-start", "game-end", "game-selected", "system-selected", "screensaver-start", "screensaver-stop", "sleep", "wake" };
+
+    static inline bool isAsyncEvent(const std::string& eventName) { return _asyncEvents.find(eventName) != _asyncEvents.cend(); }
+
+    static void executeScript(const std::string& script, const std::string& eventName, const std::string& arg1, const std::string& arg2, const std::string& arg3, bool allowAsync = true)
     {
         std::string command = script;
 
@@ -91,25 +97,40 @@ namespace Scripting
             if (arg.empty())
                 break;
 
-            command += " \"" + arg + "\"";
+            std::string data = arg;
+            if (Utils::String::startsWith(data, "\"") && Utils::String::startsWith(data, "\""))
+                data = Utils::String::replace(data.substr(1, data.size() - 2), "\"", "");
+
+            data = Utils::String::replace(data, "\"", "");
+
+            if (data.find(" ") != std::string::npos)
+                command += " \"" + data + "\"";
+            else
+                command += " " + data;
         }
 
 #if WIN32
-        LOG(LogDebug) << "  executing: " << script;
+        if (Utils::FileSystem::getExtension(script) == ".ps1")
+            command = "powershell " + command;
 
-        if (eventName == "quit")
+        std::string stem = Utils::FileSystem::getStem(script);       
+        if ((allowAsync && !Utils::String::endsWith(stem, "-wait")) || Utils::String::endsWith(stem, "-nowait"))
+        {            
+            LOG(LogDebug) << "  queuing: " << command;
+
+            // Start using a thread to avoid lags
+            pushCommand(command);
+        }
+        else
         {
+            LOG(LogDebug) << "  executing: " << command;
+
             ProcessStartInfo psi;
             psi.command = command;
             psi.waitForExit = true;
             psi.showWindow = false;
             psi.run();
-        }
-        else
-        {
-            // Start using a thread to avoid lags
-            pushCommand(command);
-        }
+        }       
 #else            
         LOG(LogDebug) << "  executing: " << script;
 
@@ -150,7 +171,7 @@ namespace Scripting
                 if (_supportedExtensions.find(ext) == _supportedExtensions.cend())
                     continue;
 #endif
-                executeScript(script, "", arg1, arg2, arg3);
+                executeScript(script, "", arg1, arg2, arg3, isAsyncEvent(eventName));
             }
         }
 
@@ -183,7 +204,7 @@ namespace Scripting
                 if (_supportedExtensions.find(ext) == _supportedExtensions.cend())
                     continue;
 
-                executeScript(script.path, eventName, arg1, arg2, arg3);
+                executeScript(script.path, eventName, arg1, arg2, arg3, isAsyncEvent(eventName));
             }
         }
     }

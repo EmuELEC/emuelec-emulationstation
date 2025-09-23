@@ -6,7 +6,7 @@
 #include "guis/GuiDetectDevice.h"
 #include "guis/GuiBluetoothPair.h"
 #include "ThreadedBluetooth.h"
-#include "guis/GuiBluetoothForget.h"
+#include "guis/GuiBluetoothDevices.h"
 
 #include "guis/GuiMsgBox.h"
 #include "InputManager.h"
@@ -89,6 +89,48 @@ GuiControllersSettings::GuiControllersSettings(Window* wnd, int autoSel) : GuiSe
 	{
 		addGroup(_("BLUETOOTH"));
 
+#if defined(BATOCERA)
+		// Bluetooth enable
+		bool baseBtEnabled = SystemConf::getInstance()->getBool("controllers.bluetooth.enabled");
+		auto enable_bt = std::make_shared<SwitchComponent>(mWindow);
+		enable_bt->setState(baseBtEnabled);
+		addWithLabel(_("ENABLE BLUETOOTH"), enable_bt, autoSel == 2);
+		enable_bt->setOnChangedCallback([this, window, enable_bt, baseBtEnabled]
+		{
+			bool btEnabled = enable_bt->getState();
+			if (btEnabled != baseBtEnabled)
+			{
+				SystemConf::getInstance()->setBool("controllers.bluetooth.enabled", btEnabled);
+				SystemConf::getInstance()->saveSystemConf();
+				if (btEnabled)
+					ApiSystem::getInstance()->enableBluetooth();
+				else
+					ApiSystem::getInstance()->disableBluetooth();
+
+				Window* parent = window;
+				delete this;
+				openControllersSettings(parent, 2);
+			}
+		});
+
+		addSaveFunc([enable_bt]
+		{
+			bool btEnabled = enable_bt->getState();
+			if (btEnabled != SystemConf::getInstance()->getBool("controllers.bluetooth.enabled"))
+			{
+				SystemConf::getInstance()->setBool("controllers.bluetooth.enabled", btEnabled);
+				SystemConf::getInstance()->saveSystemConf();
+				if (btEnabled)
+					ApiSystem::getInstance()->enableBluetooth();
+				else
+					ApiSystem::getInstance()->disableBluetooth();
+			}
+		});
+
+		if (baseBtEnabled)
+		{
+#endif
+
 		// PAIR A BLUETOOTH CONTROLLER
 		addEntry(_("PAIR BLUETOOTH PADS AUTOMATICALLY"), false, [window] { ThreadedBluetooth::start(window); });
 
@@ -124,7 +166,11 @@ GuiControllersSettings::GuiControllersSettings(Window* wnd, int autoSel) : GuiSe
 		});
 #endif
 		// FORGET BLUETOOTH CONTROLLERS OR BT AUDIO DEVICES
-		addEntry(_("FORGET A BLUETOOTH DEVICE"), false, [window] { window->pushGui(new GuiBluetoothForget(window)); });
+		addEntry(_("BLUETOOTH DEVICE LIST"), false, [window] { window->pushGui(new GuiBluetoothDevices(window)); });
+
+#if defined(BATOCERA)
+		}
+#endif
 	}
 
 	addGroup(_("DISPLAY OPTIONS"));
@@ -145,6 +191,16 @@ GuiControllersSettings::GuiControllersSettings(Window* wnd, int autoSel) : GuiSe
 
 	if (Settings::getInstance()->getBool("ShowControllerActivity"))
 		addSwitch(_("SHOW CONTROLLER BATTERY LEVEL"), "ShowControllerBattery", true);
+
+	addSwitch(_("DRAW GUN CROSSHAIR"), "DrawGunCrosshair", true);
+
+#ifdef BATOCERA
+	addGroup(_("BEHAVIOR"));
+	auto restrictHotkeys = std::make_shared<SwitchComponent>(window);
+	restrictHotkeys->setState(SystemConf::getInstance()->getBool("global.exithotkeyonly"));
+	addWithLabel(_("RESTRICT HOTKEYS TO EXIT"), restrictHotkeys);
+	addSaveFunc([restrictHotkeys] { SystemConf::getInstance()->setBool("global.exithotkeyonly", restrictHotkeys->getState()); });
+#endif
 
 	addGroup(controllers_group_label);
 
@@ -354,6 +410,12 @@ void GuiControllersSettings::openControllersSpecificSettings_sindengun()
 	s->addOptionList(_("BORDER COLOR"), { { _("AUTO"), "auto" },{ _("WHITE") , "white" },{ _("RED") , "red" },{ _("GREEN"), "green" },{ _("BLUE"), "blue" } }, "controllers.guns.borderscolor", false);
 
 #if BATOCERA
+	std::string selectedBordersRatio = SystemConf::getInstance()->get("controllers.guns.bordersratio");
+	auto bordersratio_set = std::make_shared<OptionListComponent<std::string> >(mWindow, _("BORDER RATIO"), false);
+	bordersratio_set->add(_("AUTO"), "", "" == selectedBordersRatio);
+	bordersratio_set->add("4:3", "4:3", "4:3" == selectedBordersRatio);
+	s->addWithLabel(_("BORDER RATIO"), bordersratio_set);
+
 	std::string selectedCameraContrast = SystemConf::getInstance()->get("controllers.guns.sinden.contrast");
 	auto cameracontrast_set = std::make_shared<OptionListComponent<std::string> >(mWindow, _("CAMERA CONTRAST"), false);
 	cameracontrast_set->add(_("AUTO"), "", "" == selectedCameraContrast);
@@ -390,13 +452,15 @@ void GuiControllersSettings::openControllersSpecificSettings_sindengun()
 	sindenmode_choices->add(_("QUIET MACHINE GUN"), "machinegun-quiet", baseMode == "machinegun-quiet");
 	s->addWithLabel(_("RECOIL"), sindenmode_choices);
 
-	s->addSaveFunc([sindenmode_choices, cameracontrast_set, camerabrightness_set, cameraexposure_set] {
+	s->addSaveFunc([sindenmode_choices, bordersratio_set, cameracontrast_set, camerabrightness_set, cameraexposure_set] {
 		if (sindenmode_choices->getSelected() != SystemConf::getInstance()->get("controllers.guns.recoil") ||
+		        bordersratio_set->getSelected() != SystemConf::getInstance()->get("controllers.guns.bordersratio") ||
 			cameracontrast_set->getSelected() != SystemConf::getInstance()->get("controllers.guns.sinden.contrast") ||
 			camerabrightness_set->getSelected() != SystemConf::getInstance()->get("controllers.guns.sinden.brightness") ||
 			cameraexposure_set->getSelected() != SystemConf::getInstance()->get("controllers.guns.sinden.exposure")
 			) {
 			SystemConf::getInstance()->set("controllers.guns.recoil", sindenmode_choices->getSelected());
+			SystemConf::getInstance()->set("controllers.guns.bordersratio", bordersratio_set->getSelected());
 			SystemConf::getInstance()->set("controllers.guns.sinden.contrast", cameracontrast_set->getSelected());
 			SystemConf::getInstance()->set("controllers.guns.sinden.brightness", camerabrightness_set->getSelected());
 			SystemConf::getInstance()->set("controllers.guns.sinden.exposure", cameraexposure_set->getSelected());

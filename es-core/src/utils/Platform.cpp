@@ -21,6 +21,8 @@
 #include "Log.h"
 #include "Scripting.h"
 #include "Paths.h"
+#include <fstream>
+#include <string>
 
 // #define DEVTEST
 
@@ -29,8 +31,8 @@ namespace Utils
 	namespace Platform
 	{
 		ProcessStartInfo::ProcessStartInfo()
-		{ 			
-			window = nullptr; 
+		{
+			window = nullptr;
 			waitForExit = true;
 			showWindow = true;
 #ifndef WIN32
@@ -40,9 +42,9 @@ namespace Utils
 		}
 
 		ProcessStartInfo::ProcessStartInfo(const std::string& cmd)
-		{ 
+		{
 			command = cmd;
-			window = nullptr; 
+			window = nullptr;
 			waitForExit = true;
 			showWindow = true;
 #ifndef WIN32
@@ -92,9 +94,9 @@ namespace Utils
 			lpExecInfo.hwnd = NULL;
 			lpExecInfo.lpVerb = L"open"; // to open  program
 			lpExecInfo.lpDirectory = NULL;
-			lpExecInfo.nShow = showWindow ? SW_SHOW : SW_HIDE;  // show command prompt with normal window size 
+			lpExecInfo.nShow = showWindow ? SW_SHOW : SW_HIDE;  // show command prompt with normal window size
 			lpExecInfo.hInstApp = (HINSTANCE)SE_ERR_DDEFAIL;   //WINSHELLAPI BOOL WINAPI result;
-			lpExecInfo.lpParameters = wargs.c_str(); //  file name as an argument	
+			lpExecInfo.lpParameters = wargs.c_str(); //  file name as an argument
 
 			std::wstring wpath;
 
@@ -142,21 +144,25 @@ namespace Utils
 
 			return 1;
 #else
-			std::string cmdOutput = " 2> " + Utils::FileSystem::combine(Paths::getLogPath(), stderrFilename) + " | head -300 > " + Utils::FileSystem::combine(Paths::getLogPath(), stdoutFilename);
+			// getting the output when in a pipe is not easy...
+			// https://stackoverflow.com/questions/1221833/pipe-output-and-capture-exit-status-in-bash
+			std::string cmdOutput = "((((" + cmd_utf8 + " 2> " + Utils::FileSystem::combine(Paths::getLogPath(), stderrFilename) + " ; echo $? >&3) | head -300 > " + Utils::FileSystem::combine(Paths::getLogPath(), stdoutFilename) + ") 3>&1) | (read xs; exit $xs))";
 			if (!Log::enabled())
-				cmdOutput = " 2> /dev/null | head -300 > /dev/null";
+			  cmdOutput = "((((" + cmd_utf8 + " 2> /dev/null ; echo $? >&3) | head -300 > /dev/null) 3>&1) | (read xs; exit $xs))";
 
-			if (waitForExit)
-				return system((cmd_utf8 + cmdOutput).c_str());
+			if (waitForExit) {
+			  int n = system(cmdOutput.c_str());
+			  return WEXITSTATUS(n);
+			}
 
 			// fork the current process
 			pid_t ret = fork();
-			if (ret == 0) 
+			if (ret == 0)
 			{
 				ret = fork();
 				if (ret == 0)
 				{
-					execl("/bin/sh", "sh", "-c", (cmd_utf8 + cmdOutput).c_str(), (char *) NULL);
+					execl("/bin/sh", "sh", "-c", cmdOutput.c_str(), (char *) NULL);
 					_exit(1); // execl failed
 				}
 				_exit(0); // exit the child process
@@ -178,7 +184,7 @@ namespace Utils
 		{
 #ifdef WIN32 // windows
 			return system("shutdown -s -t 0");
-#else // osx / linux	
+#else // osx / linux
 #ifdef _ENABLEEMUELEC
       system("/usr/bin/emuelec-utils small-cores enable");
 			return system("systemctl poweroff");
@@ -190,9 +196,9 @@ namespace Utils
 
 		int runRestartCommand()
 		{
-#ifdef WIN32 // windows	
+#ifdef WIN32 // windows
 			return system("shutdown -r -t 0");
-#else // osx / linux	
+#else // osx / linux
 #ifdef _ENABLEEMUELEC
             system("/usr/bin/emuelec-utils small-cores enable");
 			return system("systemctl reboot");	
@@ -237,7 +243,7 @@ namespace Utils
 				close(fd);
 
 			// system(("touch " + filename).c_str());
-#endif	
+#endif
 		}
 
 		void processQuitMode()
@@ -273,7 +279,7 @@ namespace Utils
 			return quitMode == QuitMode::FAST_REBOOT || quitMode == QuitMode::FAST_SHUTDOWN;
 		}
 
-		std::string queryIPAdress()
+		std::string queryIPAddress()
 		{
 #ifdef DEVTEST
 			return "127.0.0.1";
@@ -326,7 +332,7 @@ namespace Utils
 					inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
 
 					std::string ifName = ifa->ifa_name;
-					if (ifName.find("eth") != std::string::npos || ifName.find("wlan") != std::string::npos || ifName.find("mlan") != std::string::npos || ifName.find("en") != std::string::npos || ifName.find("wl") != std::string::npos || ifName.find("p2p") != std::string::npos)
+					if (ifName.find("eth") != std::string::npos || ifName.find("wlan") != std::string::npos || ifName.find("mlan") != std::string::npos || ifName.find("en") != std::string::npos || ifName.find("wl") != std::string::npos || ifName.find("p2p") != std::string::npos || ifName.find("usb") != std::string::npos)
 					{
 						result = std::string(addressBuffer);
 						break;
@@ -348,8 +354,12 @@ namespace Utils
 						char addressBuffer[INET6_ADDRSTRLEN];
 						inet_ntop(AF_INET6, tmpAddrPtr, addressBuffer, INET6_ADDRSTRLEN);
 
+						// Skip IPv6 link-local address
+						if (strncmp(addressBuffer, "fe80:", 5) == 0)
+							continue;
+
 						std::string ifName = ifa->ifa_name;
-						if (ifName.find("eth") != std::string::npos || ifName.find("wlan") != std::string::npos || ifName.find("mlan") != std::string::npos || ifName.find("en") != std::string::npos || ifName.find("wl") != std::string::npos || ifName.find("p2p") != std::string::npos)
+						if (ifName.find("eth") != std::string::npos || ifName.find("wlan") != std::string::npos || ifName.find("mlan") != std::string::npos || ifName.find("en") != std::string::npos || ifName.find("wl") != std::string::npos || ifName.find("p2p") != std::string::npos || ifName.find("usb") != std::string::npos)
 						{
 							result = std::string(addressBuffer);
 							break;
@@ -423,6 +433,10 @@ namespace Utils
 					if ((Utils::String::toLower(file).find("/bat") != std::string::npos) && (batteryRootPath.empty()))
 						batteryRootPath = file;
 
+					// Qualcomm devices use "qcom-battery"
+					if ((Utils::String::toLower(file).find("/qcom-battery") != std::string::npos) && (batteryRootPath.empty()))
+						batteryRootPath = file;
+
 					if ((Utils::String::toLower(file).find("fuel") != std::string::npos) && (fuelgaugeRootPath.empty()))
 						fuelgaugeRootPath = file;
 
@@ -477,7 +491,27 @@ namespace Utils
 					ret.level = int(round((now / full) * 100));
 				}
 				else
-					ret.level = Utils::String::toInteger(Utils::FileSystem::readAllText(batteryCapacityPath).c_str());
+				{
+					std::ifstream file(batteryCapacityPath);
+					if (file.is_open())
+					{
+						std::string buffer;
+						std::getline(file, buffer);
+						file.close();
+						if (!buffer.empty())
+						{
+							ret.level = Utils::String::toInteger(buffer);
+						}
+						else
+						{
+							LOG(LogError) << "Error reading: " << batteryCapacityPath;
+						}
+					}
+					else
+					{
+						LOG(LogError) << "Error opening: " << batteryCapacityPath;
+					}
+				}
 			}
 
 			return ret;

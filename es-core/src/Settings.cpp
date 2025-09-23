@@ -173,7 +173,8 @@ void Settings::setDefaults()
 #endif
 	mBoolMap["ShowHelpPrompts"] = true;
 	mBoolMap["ScrapeRatings"] = true;
-	mBoolMap["ScrapeDescription"] = true;	
+	mBoolMap["ScrapeNames"] = true;	
+	mBoolMap["ScrapeDescription"] = true;
 	mBoolMap["ScrapePadToKey"] = true;
 	mBoolMap["ScrapeOverWrite"] = true;	
 	mBoolMap["IgnoreGamelist"] = false;
@@ -193,6 +194,8 @@ void Settings::setDefaults()
 
 	mBoolMap["GameOptionsAtNorth"] = false;
 	mBoolMap["LoadEmptySystems"] = false;
+	mBoolMap["HideUniqueGroups"] = true;
+	mBoolMap["DrawGunCrosshair"] = true;
 	
 	mIntMap["RecentlyScrappedFilter"] = 3;
 	
@@ -258,6 +261,8 @@ void Settings::setDefaults()
 
 	mBoolMap["ShowWheelIconOnGames"] = true;
 	mBoolMap["ShowGunIconOnGames"] = true;
+	mBoolMap["ShowTrackballIconOnGames"] = true;
+	mBoolMap["ShowSpinnerIconOnGames"] = true;
 
 	mBoolMap["SlideshowScreenSaverCustomVideoSource"] = false;
 #ifdef _ENABLEEMUELEC
@@ -569,4 +574,40 @@ bool Settings::setString(const std::string& name, const std::string& value)
 	}
 
 	return false;
+}
+
+SettingType Settings::getSettingType(const std::string& name)
+{
+	if (mStringMap.find(name) != mStringMap.cend())
+		return SettingType::String;
+
+	if (mBoolMap.find(name) != mBoolMap.cend())
+		return SettingType::Bool;
+
+	if (mIntMap.find(name) != mIntMap.cend())
+		return SettingType::Int;
+
+	if (mFloatMap.find(name) != mFloatMap.cend())
+		return SettingType::Float;
+
+	return SettingType::Unknown;
+}
+
+std::vector<std::string> Settings::getSettingsNames()
+{
+	std::vector<std::string> ret;
+	
+	for (auto item : mStringMap)
+		ret.push_back(item.first);
+
+	for (auto item : mBoolMap)
+		ret.push_back(item.first);
+
+	for (auto item : mIntMap)
+		ret.push_back(item.first);
+
+	for (auto item : mFloatMap)
+		ret.push_back(item.first);
+
+	return ret;
 }

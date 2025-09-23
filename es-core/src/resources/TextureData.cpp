@@ -71,7 +71,10 @@ bool TextureData::initSVGFromMemory(const unsigned char* fileData, size_t length
 	}
 
 	if (svgImage->width == 0 || svgImage->height == 0)
+	{
+		nsvgDelete(svgImage);
 		return false;
+	}
 
 	float sourceWidth = svgImage->width;
 	float sourceHeight = svgImage->height;
@@ -320,8 +323,11 @@ bool TextureData::loadFromVideo()
 		libvlc_media_player_set_time(vlcMediaPlayer, ms);
 
 		auto time = libvlc_media_player_get_time(vlcMediaPlayer);
-		while (time <= ms)
+		int n = 100; // avoid infinite loop
+		while (time <= ms && n > 0) {
 			time = libvlc_media_player_get_time(vlcMediaPlayer);
+			n--;
+		}
 
 		int result = libvlc_video_take_snapshot(vlcMediaPlayer, 0, localFile.c_str(), 0, 0);
 
@@ -407,7 +413,7 @@ bool TextureData::loadFromCbz()
 		size_t size = files[0].file_size;
 		unsigned char* buffer = new unsigned char[size];
 
-		Utils::Zip::zip_callback func = [](void *pOpaque, unsigned long long ofs, const void *pBuf, size_t n)
+		Utils::Zip::zip_callback func = [](void *pOpaque, uint64_t ofs, const void *pBuf, size_t n)
 		{
 			unsigned char* pSource = (unsigned char*)pBuf;
 			unsigned char* pDest = (unsigned char*)pOpaque;
