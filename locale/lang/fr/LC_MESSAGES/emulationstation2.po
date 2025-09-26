@@ -3,9 +3,10 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-12-15 23:48+0100\n"
-"PO-Revision-Date: \n"
-"Last-Translator: MrMeteo <meteosto@gmail.com>\n"
 "Language-Team: Batocera official\n"
+"PO-Revision-Date: 2025-02-24\n"
+"Last-Translator: James West\n"
+
 "Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -273,6 +274,144 @@ msgstr "Game ID Cheevos"
 
 msgid "Screenscraper Game ID"
 msgstr "Game ID Screenscraper"
+
+msgid "ERROR: EVERY SYSTEM IS HIDDEN, RE-DISPLAYING ALL OF THEM NOW"
+msgstr "ERREUR : TOUS LES SYSTÈMES SONT CACHÉS, RÉ-AFFICHAGE DE TOUS DÈS MAINTENANT"
+
+msgid "all games"
+msgstr "tous les jeux"
+
+msgid "last played"
+msgstr "dernier joué"
+
+msgid "favorites"
+msgstr "favoris"
+
+msgid "2 players"
+msgstr "2 joueurs"
+
+msgid "4 players"
+msgstr "4 joueurs"
+
+msgid "never played"
+msgstr "jamais joué"
+
+msgid "retroachievements"
+msgstr "succès rétro"
+
+msgid "arcade"
+msgstr "arcade"
+
+msgid "vertical arcade"
+msgstr "arcade vertical"
+
+msgid "lightgun games"
+msgstr "jeux au pistolet"
+
+msgid "wheel games"
+msgstr "jeux au volant"
+
+msgid "collections"
+msgstr "collections"
+
+#, c-format
+msgid "%i ITEM"
+msgid_plural "%i ITEMS"
+msgstr[0] "%i ÉLÉMENT"
+msgstr[1] "%i ÉLÉMENTS"
+
+#, c-format
+msgid "%i GAME"
+msgid_plural "%i GAMES"
+msgstr[0] "%i JEU"
+msgstr[1] "%i JEUX"
+
+msgid "SELECT"
+msgstr "SÉLECTIONNER"
+
+msgid "NETPLAY"
+msgstr "PARTIES EN RÉSEAU"
+
+msgid "RANDOM"
+msgstr "ALÉATOIRE"
+
+msgid "FILES"
+msgstr "FICHIERS"
+
+msgid ""
+"A valid account is required. Please register an account on https://"
+"retroachievements.org"
+msgstr ""
+"Un compte valide est nécessaire. Veuillez créer un compte sur https://"
+"retroachievements.org"
+
+msgid "THE EMULATOR EXITED UNEXPECTEDLY"
+msgstr "L’ÉMULATEUR S'EST FERMÉ DE MANIÈRE INATTENDUE"
+
+msgid "BAD COMMAND LINE ARGUMENTS"
+msgstr "MAUVAIS ARGUMENTS DE LA LIGNE DE COMMANDE"
+
+msgid "INVALID CONFIGURATION"
+msgstr "CONFIGURATION INVALIDE"
+
+msgid "UNKNOWN EMULATOR"
+msgstr "ÉMULATEUR INCONNU"
+
+msgid "EMULATOR IS MISSING"
+msgstr "L’ÉMULATEUR EST MANQUANT"
+
+msgid "CORE IS MISSING"
+msgstr "LE COEUR EST MANQUANT"
+
+msgid "UKNOWN ERROR"
+msgstr "ERREUR INCONNUE"
+
+msgid "AN ERROR OCCURED"
+msgstr "UNE ERREUR EST SURVENUE"
+
+msgid "SEARCHING RETROACHIEVEMENTS"
+msgstr "RECHERCHE DES SUCCÈS RÉTRO"
+
+msgid "SEARCHING NETPLAY GAMES"
+msgstr "RECHERCHE DES PARTIES EN RÉSEAU"
+
+msgid "INDEXING COMPLETED"
+msgstr "INDEXATION TERMINÉE"
+
+msgid "UPDATE GAMELISTS TO APPLY CHANGES."
+msgstr "METTEZ A JOUR LES LISTES DE JEUX POUR APPLIQUER LES MODIFICATIONS"
+
+msgid "GAME HASHING IS RUNNING. DO YOU WANT TO STOP IT?"
+msgstr "L'INDEXATION DES JEUX EST EN COURS. VOULEZ-VOUS L'INTERROMPRE ?"
+
+msgid "NO GAMES FIT THAT CRITERIA."
+msgstr "AUCUN JEU NE CORRESPOND"
+
+msgid "SCRAPING"
+msgstr "SCRAPE"
+
+msgid "SCRAPE FAILED"
+msgstr "ECHEC DU SCRAPE"
+
+msgid "SCRAPING FINISHED"
+msgstr "SCRAPE TERMINÉ"
+
+msgid "Added '%s' to '%s'"
+msgstr "'%s' ajouté à '%s'"
+
+#, c-format
+msgid "Removed '%s' from '%s'"
+msgstr "%s' supprimé de '%s'"
+
+msgid "This collection is empty."
+msgstr "Cette collection est vide."
+
+#. TRANSLATION: number of developpers / various developpers
+msgid "None"
+msgstr "Aucun"
+
+msgid "Various"
+msgstr "Divers"
 
 #, c-format
 msgid "This collection contains %i game:%s"
@@ -756,6 +895,16 @@ msgstr ""
 
 msgid "NETWORK CONNECTION NEEDED"
 msgstr "CONNEXION RÉSEAU NÉCESSAIRE"
+
+msgid ""
+"THIS WILL DELETE THE ACTUAL GAME FILE(S)!\n"
+"ARE YOU SURE?"
+msgstr ""
+"VOUS ALLEZ SUPPRIMER LE JEU ACTUEL!\n"
+"ETES-VOUS SÛR(E) ?"
+
+msgid "SEARCH"
+msgstr "RECHERCHER"
 
 msgid "NO UPDATE AVAILABLE"
 msgstr "PAS DE MISE À JOUR DISPONIBLE"
@@ -1787,6 +1936,291 @@ msgstr "Forcer le jeu dans ce format d'affichage."
 msgid ""
 "Sets the display's resolution. Does not affect the rendering resolution."
 msgstr "Forcer l'émulateur dans cette résolution."
+
+msgid "SHOW RETROARCH FPS"
+msgstr "MONTRER LES FPS DANS RETROARCH"
+
+msgid "ENABLE RA SPLASH"
+msgstr "ACTIVER ÉCRANS DE LANCEMENT DE RETROARCH"
+
+msgid "ALWAYS SHOW BOOT VIDEO"
+msgstr "TOUJOURS MONTRER LA VIDÉO DE BOOT"
+
+msgid "RANDOMIZE BOOT VIDEO"
+msgstr "MODE ALÉATOIRE POUR LA VIDÉO DE BOOT"
+
+msgid "DEFAULT YOUTUBE SEARCH WORD"
+msgstr "MOT DE RECHERCHE YOUTUBE PAR DÉFAUT"
+
+msgid "GAMEPAD CONFIG"
+msgstr "CONFIGURATION DE LA MANETTE"
+
+msgid "RETROARCH MENU"
+msgstr "MENU DE RETROARCH"
+
+msgid "EXTERNAL MOUNT OPTIONS"
+msgstr "OPTIONS DE MONTAGE EXTERNE"
+
+msgid "DANGER ZONE"
+msgstr "ZONE DANGER"
+
+msgid "AUTO CONFIG ADVANCEMAME GAMEPAD"
+msgstr "CONFIGURATION AUTO DE LA MANETTE ADVANCEMAME"
+
+msgid "AUTO CONFIG ADVANCEMAME GAMEPAD CACHE"
+msgstr "CACHE CONFIGURATION AUTO DE LA MANETTE ADVANCEMAME"
+
+msgid "AUTO CONFIG FLYCAST GAMEPAD"
+msgstr "CONFIGURATION AUTO DE LA MANETTE FLYCAST"
+
+msgid "AUTO CONFIG FLYCAST GAMEPAD CACHE"
+msgstr "CACHE CONFIGURATION AUTO DE LA MANETTE FLYCAST"
+
+msgid "AUTO CONFIG DOLPHIN GAMEPAD"
+msgstr "CONFIGURATION AUTO DE LA MANETTE DOLPHIN"
+
+msgid "AUTO CONFIG DOLPHIN GAMEPAD CACHE"
+msgstr "CACHE CONFIGURATION AUTO DE LA MANETTE DOLPHIN"
+
+msgid "AUTO CONFIG MUPEN64PLUS GAMEPAD"
+msgstr "CONFIGURATION AUTO DE LA MANETTE MUPEN64PLUS"
+
+msgid "AUTO CONFIG MUPEN64PLUS GAMEPAD CACHE"
+msgstr "CACHE CONFIGURATION AUTO DE LA MANETTE MUPEN64PLUS"
+
+msgid "AUTO CONFIG DUCKSTATION GAMEPAD"
+msgstr "CONFIGURATION AUTO DE LA MANETTE DUCKSTATION"
+
+msgid "AUTO CONFIG YABASANSHIRO GAMEPAD"
+msgstr "CONFIGURATION AUTO DE LA MANETTE YABASANSHIRO"
+
+msgid "AUTO CONFIG PPSSPPSDL GAMEPAD"
+msgstr "CONFIGURATION AUTO DE LA MANETTE PPSSPPSDL"
+
+msgid "EXTERNAL DEVICE"
+msgstr "PÉRIPHÉRIQUE EXTERNE"
+
+msgid "Select the mounted drive to be used for ROMS."
+msgstr "Sélectionnez le lecteur monté à utiliser pour les ROMS."
+
+msgid "RETRY TIMES"
+msgstr "NOMBRE D'ESSAIS"
+
+msgid "How many times to retry the mount on boot."
+msgstr "Combien d'essais pour le montage lors du boot"
+
+msgid "DELAY BETWEEN TRIES"
+msgstr "DÉLAI ENTRE CHAQUE ESSAI"
+
+msgid "How much delay in seconds between each retry."
+msgstr "Combien de secondes entre chaque essai"
+
+msgid "FORCE MOUNT NOW"
+msgstr "FORCER LE MONTAGE MAINTENANT"
+
+msgid ""
+"WARNING THIS WILL RESTART EMULATIONSTATION!\n"
+"\n"
+"System will try to mount the external drive selected "
+msgstr ""
+"ATTENTION CELA VA REDÉMARRER EMULATIONSTATION !\n"
+"\n"
+"Le système va essayer de monter le disque externe sélectionné"
+
+msgid ""
+". Make sure you have all the settings saved before running this.\n"
+"\n"
+"TRY TO MOUNT EXTERNAL AND RESTART?"
+msgstr ""
+". Soyez sûr(e) d'avoir tous les paramètres sauvegardés avant de lancer cela.\n"
+"\n"
+"ESSAYER DE MONTER LE DISQUE EXTERNE ET REDÉMARRER ?"
+
+msgid "OVERCLOCK"
+msgstr "OVERCLOCK"
+
+msgid "Off"
+msgstr ""
+
+msgid "1.4ghz"
+msgstr "1.4 Ghz"
+
+msgid ""
+"OGA OC is HIGHLY experimental, you may encounter random lockups or your "
+"device might not boot anymore. \n"
+msgstr ""
+"OGA OC est HAUTEMENT expérimental, des blocages pourraient survenir "
+"ou votre appareil ne plus booter du tout \n"
+
+msgid ""
+"In case you cannot boot anymore, create an empty file called \"no_oc.oga\" "
+"on the boot (EMUELEC) partition.\n"
+"\n"
+msgstr ""
+"Au cas où vous ne pourriez plus booter, créer un fichier vide nommé \"no_oc.oga\" "
+"dans la partition de boot (EMUELEC).\n"
+"\n"
+
+msgid ""
+"There is also the posibility of SD card file corruption!!! Only enable OC if "
+"you agree to the risks!\n"
+"\n"
+msgstr ""
+"Il y a aussi la possibilité de corruption de fichiers dans la carte SD ! N'activer l'OC"
+"que si vous êtes conscient du risque !\n"
+"\n"
+
+msgid "CLOUD BACKUP SETTINGS AND GAME SAVES"
+msgstr "PARAMÈTRES SAUVEGARDES CLOUD ET JEUX"
+
+msgid ""
+"WARNING THIS WILL RESTART EMULATIONSTATION!\n"
+"\n"
+"This will backup your game saves, savestates and emuelec configs to the "
+"cloud service configured on rclone.conf\n"
+"\n"
+"BACKUP TO CLOUD AND RESTART?"
+msgstr ""
+"ATTENTION CELA VA REDÉMARRER EMULATIONSTATION !\n"
+"\n"
+"Cela va copier vos sauvegardes de jeux, sauvegardes d'état et configurations Emuelec "
+"dans le service cloud configuré dans rclone.conf\n"
+"\n"
+"SAUVEGARDER DANS LE CLOUD ET REDÉMARRER ?"
+
+msgid "CLOUD RESTORE SETTINGS AND GAME SAVES"
+msgstr "RESTAURER LES PARAMÈTRES ET LES SAUVEGARDES DES JEUX DEPUIS LE CLOUD"
+
+msgid ""
+"WARNING THIS WILL RESTART EMULATIONSTATION!\n"
+"\n"
+"This will restore your game saves, savestates and emuelec configs from the "
+"cloud service configured on rclone.conf, it will overwrite any existing "
+"file!!\n"
+"\n"
+"RESTORE FROM CLOUD AND RESTART?"
+msgstr ""
+"ATTENTION CELA VA REDÉMARRER EMULATIONSTATION !\n"
+"\n"
+"Cela va restaurer vos sauvegardes de jeux, sauvegardes d'état et configurations Emuelec "
+"depuis le service cloud configuré dans rclone.conf, et écraser les fichiers "
+"existants !\n"
+"\n"
+"RESTAURER DEPUIS LE CLOUD ET REDÉMARRER ?"
+
+msgid "LOCAL BACKUP EMUELEC CONFIGS"
+msgstr "SAUVEGARDE LOCALE DES CONFIGURATIONS EMUELEC"
+
+msgid ""
+"WARNING THIS WILL RESTART EMULATIONSTATION!\n"
+"\n"
+"AFTER THE SCRIPT IS DONE REMEMBER TO COPY THE FILE /storage/roms/backup/"
+"ee_backup_config.tar.gz TO SOME PLACE!\n"
+"\n"
+"BACKUP CURRENT CONFIG AND RESTART?"
+msgstr ""
+"ATTENTION CELA VA REDÉMARRER EMULATIONSTATION !\n"
+"\n"
+"UNE FOIS LE SCRIPT EFFECTUÉ COPIEZ LE FICHIER /storage/roms/backup/"
+"ee_backup_config.tar.gz DANS UN ENDROIT SÛR !\n"
+"\n"
+"SAUVEGARDER LA CONFIGUATION ACTUELLE ET REDÉMARRER ?"
+
+msgid "RESET EMUELEC SCRIPTS AND BINARIES TO DEFAULT"
+msgstr "RÉINITIALISER LES SCRIPTS ET BINARIES"
+
+msgid ""
+"WARNING: SYSTEM WILL RESET SCRIPTS AND BINARIES !\n"
+"UPDATE, DOWNLOADS, THEMES, BLUETOOTH PAIRINGS AND ROMS FOLDER WILL NOT BE "
+"AFFECTED.\n"
+"\n"
+"RESET SCRIPTS AND BINARIES TO DEFAULT AND RESTART?"
+msgstr ""
+"ATTENTION: LE SYSTÈME VA RÉINITIALISER LES SCRIPTS ET BINARIES !\n"
+"MISE À JOUR, TÉLÉCHARGEMENTS, THÈMES, APPAIRAGES BLUETOOTH ET DOSSIERS DES ROMS "
+"NE SERONT PAS AFFECTÉS.\n"
+"\n"
+"RÉINITIALISER SCRIPTS ET BINARIES ET REDÉMARRER ?"
+
+msgid "RESET RETROARCH CONFIG TO DEFAULT"
+msgstr "RÉINITIALISER LA CONFIG DE RETROARCH"
+
+msgid ""
+"WARNING: RETROARCH CONFIG WILL RESET TO DEFAULT\n"
+"\n"
+"PER-CORE CONFIGURATIONS WILL NOT BE AFFECTED BUT NO BACKUP WILL BE CREATED!\n"
+"\n"
+"RESET RETROARCH CONFIG TO DEFAULT?"
+msgstr ""
+"ATTENTION: LA CONFIG RETROARCH VA ÊTRE RÉINITIALISÉE\n"
+"\n"
+"LES CONFIGS DES COEURS NE SERONT PAS AFFECTÉES MAIS AUCUNE SAUVEGARDE NE SERA CRÉÉE !\n"
+"\n"
+"RÉINITIALISER LA CONFIG RETROARCH ?"
+
+msgid "RESET SYSTEM TO DEFAULT CONFIG"
+msgstr "RÉINITIALISER LE SYSTÈME AVEC LA CONFIG PAR DÉFAUT"
+
+msgid ""
+"WARNING: ALL CONFIGURATIONS WILL BE RESET AND NO BACKUP WILL BE CREATED!\n"
+"\n"
+"IF YOU WANT TO KEEP YOUR SETTINGS MAKE A BACKUP AND SAVE IT ON AN EXTERNAL "
+"DRIVE BEFORE RUNING THIS OPTION!\n"
+"\n"
+"RESET SYSTEM TO DEFAULT CONFIG AND RESTART?"
+msgstr ""
+"ATTENTION: TOUTES LES CONFIGS VONT ÊTRE RÉINITIALISÉES ET AUCUNE SAUVEGARDE NE SERA CRÉÉE !\n"
+"\n"
+"SI VOUS VOULEZ GARDER VOS RÉGLAGES FAITES-EN UNE COPIE ET SAUVEGARDEZ-LA "
+"SUR UN DISQUE EXTERNE AVANT D'ACTIVER CETTE OPTION !\n"
+"\n"
+"RÉINITIALISER LE SYSTÈME AVEC LA CONFIG PAR DÉFAUT ET REDÉMARRER ?"
+
+msgid "FORCE UPDATE"
+msgstr "FORCER LA MISE À JOUR"
+
+msgid ""
+"WARNING: A FORCE UPDATE WILL DOWNLOAD WHATEVER VERSION IS AVAILABLE FOR "
+"UPDATE REGARDLESS OF VERSION BASED ON THE TYPE YOU HAVE SELECTED IN THE "
+"UPDATE & DOWNLOADS (beta or stable)\n"
+"\n"
+"SYSTEM WILL RESET SCRIPTS AND BINARIES !\n"
+"DOWNLOADS, THEMES, BLUETOOTH PAIRINGS AND ROMS FOLDER WILL NOT BE AFFECTED.\n"
+"\n"
+"CONTINUE WITH FORCE UPDATE?"
+msgstr ""
+"ATTENTION: UNE MISE À JOUR FORCÉE TÉLÉCHARGERA N'IMPORTE QUELLE VERSION DISPONIBLE "
+"QUELQUE SOIT LE TYPE DE VERSION SÉLECTIONNÉE DANS LA RUBRIQUE "
+"MISE À JOUR ET TÉLÉCHARGEMENTS (bêta ou stable)\n"
+"\n"
+"LE SYSTÈME VA RÉINITIALISER LES SCRIPTS ET BINARIES !\n"
+"LES TÉLÉCHARGEMENTS, THÈMES, APPAIRAGES BLUETOOTH ET DOSSIERS DES JEUX NE SERONT PAS AFFECTÉS.\n"
+"\n"
+"CONTINUER LA MISE À JOUR FORCÉE ?"
+
+msgid "ARE YOU SURE YOU WANT TO CONFIGURE THE INPUT?"
+msgstr "ÊTES-VOUS SÛR(E) DE VOULOIR CONFIGURER LA MANETTE ?"
+
+msgid "THE UI MODE IS NOW UNLOCKED"
+msgstr "L’INTERFACE EST MAINTENANT DÉVERROUILLÉE"
+
+msgid "ENTER THE CODE TO UNLOCK THE CURRENT UI MODE"
+msgstr "ENTREZ LE CODE POUR DÉVERROUILLER L’INTERFACE"
+
+msgid "DEVELOPER"
+msgstr "DÉVELOPPEUR"
+
+msgid "VIDEO OPTIONS"
+msgstr "OPTIONS VIDÉO"
+
+msgid "VRAM LIMIT"
+msgstr "LIMITE MÉMOIRE VIDÉO"
+
+msgid "SHOW FRAMERATE"
+msgstr "AFFICHER LE NOMBRE D'IMAGES/SEC"
+
+msgid "VSYNC"
+msgstr "SYNCHRONISATION VERTICALE"
 
 msgid "SMOOTH GAMES (BILINEAR FILTERING)"
 msgstr "LISSER (FILTRAGE BILINÉAIRE)"
