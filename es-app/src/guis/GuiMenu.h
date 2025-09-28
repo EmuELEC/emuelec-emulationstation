@@ -104,6 +104,9 @@ private:
         static std::shared_ptr<OptionListComponent<std::string>> createRatioOptionList(Window *window, std::string configname);
         static std::shared_ptr<OptionListComponent<std::string>> createVideoResolutionModeOptionList(Window *window, std::string configname, std::string configoptname = "videomode", const std::string output = "");
 #ifdef _ENABLEEMUELEC
+	static std::shared_ptr<OptionListComponent<std::string>> createSplashLoadingOptionList(Window *window);
+	static std::shared_ptr<OptionListComponent<std::string>> createSplashExitOptionList(Window *window);
+
   static std::shared_ptr<OptionListComponent<std::string>> createNativeVideoResolutionModeOptionList(Window *window, std::string configname);
 
   static std::shared_ptr<OptionListComponent<std::string>> createJoyBtnOptionList(Window *window, std::string prefixName, std::string title, int selectId = -1);
