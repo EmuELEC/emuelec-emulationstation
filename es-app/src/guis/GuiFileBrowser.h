@@ -16,14 +16,14 @@ class BusyComponent;
 class GuiFileBrowser : public GuiComponent
 {
 public:
-       enum FileTypes
-       {
-               IMAGES     = 1 << 0,
-               MANUALS    = 1 << 1,
-               VIDEO      = 1 << 2,
-               DIRECTORY  = 1 << 3,
-               AUDIO      = 1 << 4,
-               ALL        = 0xFFFFFFFF
+	enum FileTypes
+	{
+		IMAGES = 1,
+		MANUALS = 2,
+		VIDEO = 4,
+		DIRECTORY = 8,
+		FILES = 16,
+		ALL = 256
        };
         GuiFileBrowser(Window* window, const std::string startPath, const std::string selectedFile, FileTypes types = FileTypes::IMAGES, const std::function<void(const std::string&)>& okCallback = nullptr, const std::string& title = "");
 #ifdef _ENABLEEMUELEC        

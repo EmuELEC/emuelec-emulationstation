@@ -107,6 +107,12 @@ MameNames::MameNames()
 					//if (gameNode.attribute("wheel") && gameNode.attribute("wheel").value() == sTrue)
 					//	rom.type |= ArcadeRomType::WHEEL;
 
+					//if (gameNode.attribute("trackball") && gameNode.attribute("trackball").value() == sTrue)
+					//	rom.type |= ArcadeRomType::TRACKBALL;
+
+					//if (gameNode.attribute("spinner") && gameNode.attribute("spinner").value() == sTrue)
+					//	rom.type |= ArcadeRomType::SPINNER;
+
 					mArcadeRoms[name] = rom;
 				}
 			}
@@ -131,34 +137,46 @@ MameNames::MameNames()
 
 				for (pugi::xml_node systemNode = systems.child("system"); systemNode; systemNode = systemNode.next_sibling("system"))
 				{
-					if (!systemNode.attribute("name"))
+					if (!systemNode.attribute("id"))
 						continue;
 
-					std::string systemNames = systemNode.attribute("name").value();
+					std::string systemNames = systemNode.attribute("id").value();
 					for (auto systemName : Utils::String::split(systemNames, ','))
 					{
 						std::unordered_set<std::string> gunGames;
 						std::unordered_set<std::string> wheelGames;
+						std::unordered_set<std::string> trackballGames;
+						std::unordered_set<std::string> spinnerGames;
+						std::map<std::string, std::string> allGamesNames;
 
 						for (pugi::xml_node gameNode = systemNode.child("game"); gameNode; gameNode = gameNode.next_sibling("game"))
 						{
-							if (!gameNode.attribute("name"))
+							if (!gameNode.attribute("id"))
 								continue;
 
+							std::string gameId   = gameNode.attribute("id").value();
 							std::string gameName = gameNode.attribute("name").value();
-							if (gameName.empty() || gameName == "default")
+							if (gameId.empty() || gameId == "default")
 								continue;
 								
 							if (gameNode.child("gun"))
-								gunGames.insert(gameName);
+								gunGames.insert(gameId);
 
 							if (gameNode.child("wheel"))
-								wheelGames.insert(gameName);
+								wheelGames.insert(gameId);
+
+							if (gameNode.child("trackball"))
+								trackballGames.insert(gameId);
+
+							if (gameNode.child("spinner"))
+								spinnerGames.insert(gameId);
+
+							allGamesNames[gameId] = gameName;
 						}
 
 						if (gunGames.size())
 						{
-							if (systemNames == "arcade")
+							if (systemName == "arcade")
 							{
 								for (auto game : gunGames)
 								{
@@ -167,6 +185,7 @@ MameNames::MameNames()
 									{
 										ArcadeRom rom;
 										rom.type |= ArcadeRomType::LIGHTGUN;
+										rom.displayName = allGamesNames[game];
 										mArcadeRoms[game] = rom;
 									}
 									else 
@@ -179,7 +198,7 @@ MameNames::MameNames()
 
 						if (wheelGames.size())
 						{
-							if (systemNames == "arcade")
+							if (systemName == "arcade")
 							{
 								for (auto game : wheelGames)
 								{
@@ -188,6 +207,7 @@ MameNames::MameNames()
 									{
 										ArcadeRom rom;
 										rom.type |= ArcadeRomType::WHEEL;
+										rom.displayName = allGamesNames[game];
 										mArcadeRoms[game] = rom;
 									}
 									else
@@ -196,6 +216,68 @@ MameNames::MameNames()
 							}
 							else
 								mNonArcadeWheelGames[Utils::String::trim(systemName)] = wheelGames;
+						}
+
+						if (trackballGames.size())
+						{
+							if (systemName == "arcade")
+							{
+								for (auto game : trackballGames)
+								{
+									auto it = mArcadeRoms.find(game);
+									if (it == mArcadeRoms.cend())
+									{
+										ArcadeRom rom;
+										rom.type |= ArcadeRomType::TRACKBALL;
+										rom.displayName = allGamesNames[game];
+										mArcadeRoms[game] = rom;
+									}
+									else
+										it->second.type |= ArcadeRomType::TRACKBALL;
+								}
+							}
+							else
+								mNonArcadeTrackballGames[Utils::String::trim(systemName)] = trackballGames;
+						}
+
+						if (spinnerGames.size())
+						{
+							if (systemName == "arcade")
+							{
+								for (auto game : spinnerGames)
+								{
+									auto it = mArcadeRoms.find(game);
+									if (it == mArcadeRoms.cend())
+									{
+										ArcadeRom rom;
+										rom.type |= ArcadeRomType::SPINNER;
+										rom.displayName = allGamesNames[game];
+										mArcadeRoms[game] = rom;
+									}
+									else
+										it->second.type |= ArcadeRomType::SPINNER;
+								}
+							}
+							else
+								mNonArcadeSpinnerGames[Utils::String::trim(systemName)] = spinnerGames;
+						}
+
+						if (allGamesNames.size())
+						{
+						  if (systemName == "arcade")
+						    {
+						      for (auto game = allGamesNames.begin(); game != allGamesNames.end(); game++)
+							{
+							  auto it = mArcadeRoms.find(game->second);
+							  if (it == mArcadeRoms.cend())
+							    {
+							      // add as simple arcade rom
+							      ArcadeRom rom;
+							      rom.displayName = allGamesNames[game->second];
+							      mArcadeRoms[game->second] = rom;
+							    }
+							}
+						    }
 						}
 					}	
 				}
@@ -284,8 +366,8 @@ const bool MameNames::isLightgun(const std::string& _nameName, const std::string
 		return true;
 
 	// name contains ?
-	for (auto gameName : it->second)
-		if (indexedName.find(gameName) != std::string::npos)
+	for (auto gameId : it->second)
+		if (indexedName.find(gameId) != std::string::npos)
 			return true;
 
 	return false;
@@ -313,8 +395,66 @@ const bool MameNames::isWheel(const std::string& _nameName, const std::string& s
 		return true;
 
 	// name contains ?
-	for (auto gameName : it->second)
-		if (indexedName.find(gameName) != std::string::npos)
+	for (auto gameId : it->second)
+		if (indexedName.find(gameId) != std::string::npos)
+			return true;
+
+	return false;
+}
+
+const bool MameNames::isTrackball(const std::string& _nameName, const std::string& systemName, bool isArcade)
+{
+	if (isArcade)
+	{
+		auto it = mArcadeRoms.find(_nameName);
+		if (it != mArcadeRoms.cend())
+			return hasFlag(it->second.type, ArcadeRomType::TRACKBALL);
+
+		return false;
+	}
+
+	auto it = mNonArcadeTrackballGames.find(systemName);
+	if (it == mNonArcadeTrackballGames.cend())
+		return false;
+
+	std::string indexedName = getIndexedName(_nameName);
+
+	// Exact match ?
+	if (it->second.find(indexedName) != it->second.cend())
+		return true;
+
+	// name contains ?
+	for (auto gameId : it->second)
+		if (indexedName.find(gameId) != std::string::npos)
+			return true;
+
+	return false;
+}
+
+const bool MameNames::isSpinner(const std::string& _nameName, const std::string& systemName, bool isArcade)
+{
+	if (isArcade)
+	{
+		auto it = mArcadeRoms.find(_nameName);
+		if (it != mArcadeRoms.cend())
+			return hasFlag(it->second.type, ArcadeRomType::SPINNER);
+
+		return false;
+	}
+
+	auto it = mNonArcadeSpinnerGames.find(systemName);
+	if (it == mNonArcadeSpinnerGames.cend())
+		return false;
+
+	std::string indexedName = getIndexedName(_nameName);
+
+	// Exact match ?
+	if (it->second.find(indexedName) != it->second.cend())
+		return true;
+
+	// name contains ?
+	for (auto gameId : it->second)
+		if (indexedName.find(gameId) != std::string::npos)
 			return true;
 
 	return false;

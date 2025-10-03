@@ -243,6 +243,9 @@ void GuiFileBrowser::navigateTo(const std::string path)
 				if (ext == ".ogg" || ext == ".mp3" || ext == ".wav")
 					icon = AUDIO_ICON;
 
+			if ((mTypes & FileTypes::FILES) == FileTypes::FILES)
+					icon = DOCUMENT_ICON;
+
 			if (icon.empty())
 				continue;
 

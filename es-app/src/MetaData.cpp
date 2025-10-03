@@ -477,6 +477,7 @@ void MetaDataList::importScrappedMetadata(const MetaDataList& source)
 			type &= ~MetaDataImportType::Types::CARTRIDGE;		
 	}
 
+	bool scapeNames = Settings::getInstance()->getBool("ScrapeNames");
 	bool scrapeDescription = Settings::getInstance()->getBool("ScrapeDescription");
 
 	for (auto mdd : getMDD())
@@ -486,6 +487,12 @@ void MetaDataList::importScrappedMetadata(const MetaDataList& source)
 
 		if (mdd.id == MetaDataId::KidGame) // Not scrapped yet
 			continue;
+
+		if (mdd.id == MetaDataId::Name && !scapeNames)
+		{
+			if (!get(mdd.id).empty())
+				continue;
+		}
 
 		if (mdd.id == MetaDataId::Desc && !scrapeDescription)
 		{

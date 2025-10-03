@@ -12,6 +12,7 @@ namespace PlatformIds
 		PLATFORM_UNKNOWN = 0,
 
 		THREEDO, // name can't start with a constant
+		ACTIONMAX,
 		AMIGA,
 		AMSTRAD_CPC,
 		APPLE_II,
@@ -62,6 +63,7 @@ namespace PlatformIds
 		PC_98,
 		SEGA_32X,
 		SEGA_CD,
+		SEGA_CHIHIRO,
 		SEGA_DREAMCAST,
 		SEGA_GAME_GEAR,
 		SEGA_GENESIS,
@@ -89,7 +91,8 @@ namespace PlatformIds
 		VIDEOPAC_ODYSSEY2,
 		VECTREX,
 		TRS80_COLOR_COMPUTER,
-		TANDY,		
+		TANDY,
+		DRAGON32,
 		SUPERGRAFX,
 		AMIGACD32,
 		AMIGACDTV,
@@ -151,6 +154,7 @@ namespace PlatformIds
 		SUPER_NINTENDO_MSU1,
 		FUJITSU_FM7,
 		CASIO_PV1000,
+		CASIO_LOOPY,
 		TIGER_GAMECOM,
 		ENTEX_ADVENTURE_VISION,			
 		EMERSON_ARCADIA_2001,			
@@ -158,6 +162,7 @@ namespace PlatformIds
 		VTECH_CREATIVISION,
 		VTECH_VSMILE,
 		ARDUBOY,
+		VC4000,
 
 		GAMATE,
 		HARTUNG_GAME_MASTER,
@@ -168,7 +173,9 @@ namespace PlatformIds
 		CAMPUTER_LYNX,
 		EPOCH_GAMEPOCKET,
 		WASM4,
+		VIRCON32,
 		TANDY_VIS,
+		LOWRESNX,
 
 		TEKNOPARROT,
 

@@ -386,18 +386,18 @@ std::pair<std::string, int> ApiSystem::scrape(BusyComponent* ui)
 
 bool ApiSystem::ping() 
 {
-	// ping Google, if it fails then move on, if succeeds exit loop and return "true"
-	if (!executeScript("timeout 1 ping -c 1 -t 255 google.com"))
-	{
-		// ping Google DNS
-		if (!executeScript("timeout 1 ping -c 1 -t 255 8.8.8.8"))
-		{
-			// ping Google secondary DNS & give 2 seconds, return this one's status
-			return executeScript("timeout 2 ping -c 1 -t 255 8.8.4.4");
-		}
-	}
+    // Google DNS
+    if (!executeScript("ping -c 1 -W 2 -t 255 8.8.8.8"))
+    {
+        // Cloudflare DNS
+        if (!executeScript("ping -c 1 -W 2 -t 255 1.1.1.1"))
+        {
+            // Quad9 DNS
+            return executeScript("ping -c 1 -W 2 -t 255 9.9.9.9");
+        }
+    }
 
-	return true;
+    return true;
 }
 
 bool ApiSystem::canUpdate(std::vector<std::string>& output) 
@@ -526,15 +526,25 @@ bool ApiSystem::disableWifi()
 #endif
 }
 
-std::string ApiSystem::getIpAdress() 
+std::string ApiSystem::getIpAddress()
 {
-	LOG(LogDebug) << "ApiSystem::getIpAdress";
+	LOG(LogDebug) << "ApiSystem::getIpAddress";
 	
-	std::string result = Utils::Platform::queryIPAdress(); // platform.h
+	std::string result = Utils::Platform::queryIPAddress(); // platform.h
 	if (result.empty())
 		return "NOT CONNECTED";
 
 	return result;
+}
+
+bool ApiSystem::enableBluetooth()
+{
+	return executeScript("batocera-bluetooth enable 2>&1 >/dev/null");
+}
+
+bool ApiSystem::disableBluetooth()
+{
+	return executeScript("batocera-bluetooth disable");
 }
 
 void ApiSystem::startBluetoothLiveDevices(const std::function<void(const std::string)>& func)
@@ -552,6 +562,16 @@ bool ApiSystem::pairBluetoothDevice(const std::string& deviceName)
 	return executeScript("batocera-bluetooth trust " + deviceName);
 }
 
+bool ApiSystem::connectBluetoothDevice(const std::string& deviceName)
+{
+	return executeScript("batocera-bluetooth connect " + deviceName);
+}
+
+bool ApiSystem::disconnectBluetoothDevice(const std::string& deviceName)
+{
+	return executeScript("batocera-bluetooth disconnect " + deviceName);
+}
+
 bool ApiSystem::removeBluetoothDevice(const std::string& deviceName)
 {
 	return executeScript("batocera-bluetooth remove " + deviceName);
@@ -567,15 +587,23 @@ std::vector<std::string> ApiSystem::getPairedBluetoothDeviceList()
 	return executeEnumerationScript("batocera-bluetooth list");
 }
 
-
 std::vector<std::string> ApiSystem::getAvailableStorageDevices() 
 {
 	return executeEnumerationScript("batocera-config storage list");
 }
 
-std::vector<std::string> ApiSystem::getVideoModes() 
+std::vector<std::string> ApiSystem::getVideoModes(const std::string output)
 {
-	return executeEnumerationScript("batocera-resolution listModes");
+  if(output == "") {
+    return executeEnumerationScript("batocera-resolution listModes");
+  } else {
+    return executeEnumerationScript("batocera-resolution --screen \"" + output + "\" listModes");
+  }
+}
+
+std::vector<std::string> ApiSystem::getCustomRunners() 
+{
+	return executeEnumerationScript("batocera-wine-runners");
 }
 
 std::vector<std::string> ApiSystem::getAvailableBackupDevices() 
@@ -1391,6 +1419,194 @@ void ApiSystem::setBrightness(int value)
 	Utils::FileSystem::writeAllText(BACKLIGHT_BRIGHTNESS_NAME, content);
 }
 
+static std::string LED_COLOUR_NAME;
+static std::string LED_BRIGHTNESS_VALUE;
+static std::string LED_MAX_BRIGHTNESS_VALUE;
+
+bool ApiSystem::getLED(int& red, int& green, int& blue)
+{	
+	#if WIN32
+	return false;
+	#endif
+
+	if (LED_COLOUR_NAME == "notfound")
+		return false;
+
+	if (LED_COLOUR_NAME.empty())
+	{
+		auto directories = Utils::FileSystem::getDirContent("/sys/class/leds");
+
+        for (const auto& directory : directories)
+        {
+            if (directory.find("multicolor") != std::string::npos)
+            {
+				std::string ledColourPath = directory + "/multi_intensity";
+				
+				if (Utils::FileSystem::exists(ledColourPath))
+				{
+					LED_COLOUR_NAME = ledColourPath;
+
+					LOG(LogInfo) << "ApiSystem::getLED > LED path resolved to " << directory;
+					break;
+				}
+			}
+		}
+	}
+
+	if (LED_COLOUR_NAME.empty())
+	{
+		LOG(LogInfo) << "ApiSystem::getLED > LED path is not resolved";
+
+		LED_COLOUR_NAME = "notfound";
+		return false;
+	}
+
+    if (Utils::FileSystem::exists(LED_COLOUR_NAME)) {
+        std::string colourValue = Utils::FileSystem::readAllText(LED_COLOUR_NAME);
+        std::stringstream ss(colourValue);
+        std::string token;
+
+        // Extract red value
+        std::getline(ss, token, ' ');
+        red = std::stoi(token);
+
+        // Extract green value
+        std::getline(ss, token, ' ');
+        green = std::stoi(token);
+
+        // Extract blue value
+        std::getline(ss, token);
+        blue = std::stoi(token);
+
+        executeScript("batocera-led-handheld block_color_changes"); // temporarily prevent changes from external daemon
+        LOG(LogInfo) << "ApiSystem::getLED > LED colours are:" << red << " " << green << " " << blue;
+
+        return true;
+    }
+
+	return false;
+}
+
+void ApiSystem::getLEDColours(int& red, int& green, int& blue)
+{
+	if (Utils::FileSystem::exists(LED_COLOUR_NAME)) {
+        std::string colourValue = Utils::FileSystem::readAllText(LED_COLOUR_NAME);
+        std::stringstream ss(colourValue);
+        std::string token;
+
+        // Extract red value
+        std::getline(ss, token, ' ');
+        red = std::stoi(token);
+
+        // Extract green value
+        std::getline(ss, token, ' ');
+        green = std::stoi(token);
+
+        // Extract blue value
+        std::getline(ss, token);
+        blue = std::stoi(token);
+
+		LOG(LogInfo) << "ApiSystem::getLEDColours > LED colours are: " << red << " " << green << " " << blue;
+    }
+}
+
+void ApiSystem::setLEDColours(int red, int green, int blue)
+{
+#if WIN32    
+    return;
+#endif 
+
+    if (LED_COLOUR_NAME.empty() || LED_COLOUR_NAME == "notfound")
+        return;
+
+    // Ensure RGB values are within valid range
+	if (red < 0) red = 0;
+    if (red > 255) red = 255;
+    if (green < 0) green = 0;
+    if (green > 255) green = 255;
+    if (blue < 0) blue = 0;
+    if (blue > 255) blue = 255;
+
+    std::string content = std::to_string(red) + " " + std::to_string(green) + " " + std::to_string(blue);
+
+    // Write LED color values to file
+    Utils::FileSystem::writeAllText(LED_COLOUR_NAME, content);
+}
+
+bool ApiSystem::getLEDBrightness(int& value)
+{   
+    #if WIN32
+    return false;
+    #endif
+
+    if (LED_BRIGHTNESS_VALUE == "notfound")
+        return false;
+
+    if (LED_BRIGHTNESS_VALUE.empty() || LED_MAX_BRIGHTNESS_VALUE.empty())
+    {
+        auto directories = Utils::FileSystem::getDirContent("/sys/class/leds");
+
+        for (const auto& directory : directories)
+        {
+            if (directory.find("multicolor") != std::string::npos)
+            {
+                std::string ledBrightnessPath = directory + "/brightness";
+                std::string ledMaxBrightnessPath = directory + "/max_brightness";
+
+                if (Utils::FileSystem::exists(ledBrightnessPath) && Utils::FileSystem::exists(ledMaxBrightnessPath))
+                {
+                    LED_BRIGHTNESS_VALUE = ledBrightnessPath;
+                    LED_MAX_BRIGHTNESS_VALUE = ledMaxBrightnessPath;
+
+                    LOG(LogInfo) << "ApiSystem::getLEDBrightness > LED brightness path resolved to " << directory;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (LED_BRIGHTNESS_VALUE.empty() || LED_MAX_BRIGHTNESS_VALUE.empty())
+    {
+        LOG(LogInfo) << "ApiSystem::getLEDBrightness > LED brightness path is not resolved";
+
+        LED_BRIGHTNESS_VALUE = "notfound";
+        return false;
+    }
+
+    value = 0;
+
+    int max = Utils::String::toInteger(Utils::FileSystem::readAllText(LED_MAX_BRIGHTNESS_VALUE));
+    if (max == 0)
+        return false;
+
+    if (Utils::FileSystem::exists(LED_BRIGHTNESS_VALUE))
+        value = Utils::String::toInteger(Utils::FileSystem::readAllText(LED_BRIGHTNESS_VALUE));
+
+    value = (uint32_t) ((value / (float)max * 100.0f) + 0.5f);
+    return true;
+}
+
+void ApiSystem::setLEDBrightness(int value) {
+#if WIN32
+    return;
+#endif
+
+    if (LED_BRIGHTNESS_VALUE.empty() || LED_BRIGHTNESS_VALUE == "notfound")
+        return;
+
+    if (value < 0) value = 0;
+	if (value > 100) value = 100;
+
+    int max = Utils::String::toInteger(Utils::FileSystem::readAllText(LED_MAX_BRIGHTNESS_VALUE));
+    if (max == 0)
+        return;
+
+    float percent = static_cast<float>(value) / 100.0f;
+	int brightnessValue = static_cast<int>(percent * max + 0.5f);
+    std::string content = std::to_string(brightnessValue) + "\n";
+    Utils::FileSystem::writeAllText(LED_BRIGHTNESS_VALUE, content);
+}
+
 std::vector<std::string> ApiSystem::getWifiNetworks(bool scan)
 {
 	return executeEnumerationScript(scan ? "batocera-wifi scanlist" : "batocera-wifi list");
@@ -1542,6 +1758,9 @@ bool ApiSystem::isScriptingSupported(ScriptId script)
 		break;
 	case ApiSystem::SERVICES:
 		executables.push_back("batocera-services");
+		break;
+	case ApiSystem::BACKGLASS:
+		executables.push_back("batocera-backglass");
 		break;
 	}
 
@@ -1920,18 +2139,21 @@ std::vector<std::string> ApiSystem::getTimezones()
 	{
 		for (auto continent : Utils::FileSystem::getDirContent(folder, false))
 		{
-			for (auto file : Utils::FileSystem::getDirContent(continent, false))
+			std::string short_continent = continent.substr(continent.find_last_of('/') + 1);
+			if (short_continent == "Africa" || short_continent == "America"
+				|| short_continent == "Antarctica" || short_continent == "Asia"
+				|| short_continent == "Atlantic" || short_continent == "Australia"
+				|| short_continent == "Etc" || short_continent == "Europe"
+				|| short_continent == "Indian" || short_continent == "Pacific")
 			{
-				std::string short_continent = continent.substr(continent.find_last_of('/') + 1, -1);
-				if (short_continent == "Africa" || short_continent == "America"
-					|| short_continent == "Antarctica" || short_continent == "Asia"
-					|| short_continent == "Atlantic" || short_continent == "Australia"
-					|| short_continent == "Etc" || short_continent == "Europe"
-					|| short_continent == "Indian" || short_continent == "Pacific")
+				for (auto file : Utils::FileSystem::getDirContent(continent, false))
 				{
-					auto tz = Utils::FileSystem::getFileName(file);
-					if (std::find(ret.cbegin(), ret.cend(), tz) == ret.cend())
-						  ret.push_back(short_continent + "/" + tz);
+					if (!Utils::FileSystem::isDirectory(file))
+					{
+						auto tz = Utils::FileSystem::getFileName(file);
+						if (std::find(ret.cbegin(), ret.cend(), tz) == ret.cend())
+						ret.push_back(short_continent + "/" + tz);
+					}
 				}
 			}
 		}
@@ -2054,7 +2276,7 @@ bool ApiSystem::emuKill()
 void ApiSystem::suspend()
 {
 	LOG(LogDebug) << "ApiSystem::suspend";
-	executeScript("/usr/sbin/pm-suspend");
+	executeScript("/usr/bin/batocera-shutdown 1");
 }
 
 void ApiSystem::replugControllers_sindenguns()
@@ -2115,6 +2337,25 @@ std::vector<Service> ApiSystem::getServices()
 		}
 	}
 	return services;
+}
+
+std::vector<std::string> ApiSystem::backglassThemes() {
+  std::vector<std::string> themes;
+
+  LOG(LogDebug) << "ApiSystem::backglassThemes";
+
+  auto slines = executeEnumerationScript("batocera-backglass list-themes");
+
+  for (auto sline : slines) 
+    {
+      themes.push_back(sline);
+    }
+  return themes;
+}
+
+void ApiSystem::restartBackglass() {
+  LOG(LogDebug) << "ApiSystem::restartBackglass";
+  executeScript("/usr/bin/batocera-backglass restart");
 }
 
 bool ApiSystem::enableService(std::string name, bool enable) 

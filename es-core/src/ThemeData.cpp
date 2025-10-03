@@ -731,6 +731,31 @@ void ThemeData::loadFile(const std::string& system, const std::map<std::string, 
 	mVariables["themePath"] = Utils::FileSystem::getParent(mPaths.back());
 	mVariables["region"] = mRegion;
 	
+	for (auto name : Settings::getInstance()->getSettingsNames())
+	{
+		if (name.find(".") != std::string::npos)
+			continue;
+
+		std::string variableName = "settings." + name;
+
+		SettingType type = Settings::getInstance()->getSettingType(name);
+		switch (type)
+		{
+		case SettingType::String:
+			mVariables[variableName] = Settings::getInstance()->getString(name);
+			break;
+		case SettingType::Bool:
+			mVariables[variableName] = Settings::getInstance()->getBool(name) ? "true" : "false";
+			break;
+		case SettingType::Int:
+			mVariables[variableName] = std::to_string(Settings::getInstance()->getInt(name));
+			break;
+		case SettingType::Float:
+			mVariables[variableName] = std::to_string(Settings::getInstance()->getFloat(name));
+			break;
+		}
+	}
+
 	for (auto var : mVariables)
 	{
 		if (var.first == "screen.height" || var.first == "screen.width")
@@ -907,7 +932,7 @@ bool ThemeData::parseSubset(const pugi::xml_node& node)
 			if (!appliesToAttr.empty())
 				subSet.appliesTo = Utils::String::splitAny(appliesToAttr, ", ", true);
 
-			mSubsets.push_back(subSet);
+			mSubsets.push_back(subSet);			
 		}
 	}
 	
@@ -917,10 +942,18 @@ bool ThemeData::parseSubset(const pugi::xml_node& node)
 		if (!perSystemSetName.empty())
 		{
 			if (nameAttr == perSystemSetName)
+			{
+				mVariables["subset." + subsetAttr] = nameAttr;
+				mEvaluatorVariables["subset." + subsetAttr] = nameAttr;
 				return true;
+			}
 		}
 		else if (nameAttr == mColorset || (mColorset.empty() && isFirstSubset(node)))
+		{
+			mVariables["subset." + subsetAttr] = nameAttr;
+			mEvaluatorVariables["subset." + subsetAttr] = nameAttr;
 			return true;
+		}
 	}
 	else if (subsetAttr == "iconset")
 	{
@@ -928,20 +961,36 @@ bool ThemeData::parseSubset(const pugi::xml_node& node)
 		if (!perSystemSetName.empty())
 		{
 			if (nameAttr == perSystemSetName)
+			{
+				mVariables["subset." + subsetAttr] = nameAttr;
+				mEvaluatorVariables["subset." + subsetAttr] = nameAttr;
 				return true;
+			}
 		}
 		else if (nameAttr == mIconset || (mIconset.empty() && isFirstSubset(node)))
+		{
+			mVariables["subset." + subsetAttr] = nameAttr;
+			mEvaluatorVariables["subset." + subsetAttr] = nameAttr;
 			return true;
+		}
 	}
 	else if (subsetAttr == "menu")
 	{
 		if (nameAttr == mMenu || (mMenu.empty() && isFirstSubset(node)))
+		{
+			mVariables["subset." + subsetAttr] = nameAttr;
+			mEvaluatorVariables["subset." + subsetAttr] = nameAttr;
 			return true;
+		}
 	}
 	else if (subsetAttr == "systemview")
 	{
 		if (nameAttr == mSystemview || (mSystemview.empty() && isFirstSubset(node)))
+		{
+			mVariables["subset." + subsetAttr] = nameAttr;
+			mEvaluatorVariables["subset." + subsetAttr] = nameAttr;
 			return true;
+		}
 	}
 	else if (subsetAttr == "gamelistview")
 	{
@@ -949,10 +998,18 @@ bool ThemeData::parseSubset(const pugi::xml_node& node)
 		if (!perSystemSetName.empty())
 		{
 			if (nameAttr == perSystemSetName)
+			{
+				mVariables["subset." + subsetAttr] = nameAttr;
+				mEvaluatorVariables["subset." + subsetAttr] = nameAttr;
 				return true;
+			}
 		}
 		else if (nameAttr == mGamelistview || (mGamelistview.empty() && isFirstSubset(node)))
+		{
+			mVariables["subset." + subsetAttr] = nameAttr;
+			mEvaluatorVariables["subset." + subsetAttr] = nameAttr;
 			return true;
+		}
 	}
 	else
 	{
@@ -960,20 +1017,26 @@ bool ThemeData::parseSubset(const pugi::xml_node& node)
 		if (!perSystemSetName.empty())
 		{
 			if (nameAttr == perSystemSetName)
+			{
+				mVariables["subset." + subsetAttr] = nameAttr;
+				mEvaluatorVariables["subset." + subsetAttr] = nameAttr;
 				return true;
+			}
 		}
 		else
 		{
 			std::string setID = Settings::getInstance()->getString("subset." + subsetAttr);
 			if (nameAttr == setID || (setID.empty() && isFirstSubset(node)))
+			{
+				mVariables["subset." + subsetAttr] = nameAttr;
+				mEvaluatorVariables["subset." + subsetAttr] = nameAttr;
 				return true;
+			}
 		}
 	}
 
 	return false;
 }
-
-
 
 void ThemeData::parseInclude(const pugi::xml_node& node)
 {
@@ -1647,7 +1710,14 @@ void ThemeData::processElement(const pugi::xml_node& root, ThemeElement& element
 		break;
 
 	case COLOR:
-		element.properties[name] = Utils::HtmlColor::parse(str);
+		if (str.find("{") != std::string::npos && str.find(":") != std::string::npos && str.find("}") != std::string::npos)
+			element.properties[name + "_binding"] = str;
+		else
+		{
+			element.properties.erase(name + "_binding");
+			element.properties[name] = Utils::HtmlColor::parse(str);
+		}
+				
 		break;
 
 	case BOOLEAN:
@@ -1939,8 +2009,8 @@ void ThemeData::parseElement(const pugi::xml_node& root, const std::map<std::str
 				node.set_name("animateSelection");
 			else if (element.type == "shader" || element.type == "screenshader" || element.type == "menuShader" || element.type == "fadeShader")
 			{
-				// Child properties of shaders are to be added dynamically. They can't be described here as they are used for uniforms arguments
-				type = STRING;
+				// Child properties of shaders are to be added dynamically. They can't be described here as they are used for uniforms arguments, except "path"
+				type = (name == "path") ? PATH : STRING;
 			}
 			else if (name == "itemTemplate" && sSupportedItemTemplate.find(root.name()) != sSupportedItemTemplate.cend())
 			{
@@ -2464,6 +2534,12 @@ ThemeData::ThemeMenu::ThemeMenu(ThemeData* theme)
 				mMenuIcons[prop.first] = path;
 		}
 	}
+
+	// switch auto
+	std::string language = SystemConf::getInstance()->get("system.language");
+	std::string auto_lang = ":/auto_" + language + ".svg";
+	if(ResourceManager::getInstance()->fileExists(auto_lang))
+	  Icons.onoffauto = auto_lang;
 }
 
 void ThemeData::setDefaultTheme(ThemeData* theme) 

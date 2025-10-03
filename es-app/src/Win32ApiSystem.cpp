@@ -649,15 +649,15 @@ static std::string getScriptPath(const std::string& name)
 
 	for (auto path : paths)
 	{
-		std::string esUpdatePath = Utils::FileSystem::combine(path, name + ".cmd");
+		std::string esUpdatePath = Utils::FileSystem::combine(path, name + ".exe");
+		if (Utils::FileSystem::exists(esUpdatePath))
+			return Utils::FileSystem::getPreferredPath(esUpdatePath);
+
+		esUpdatePath = Utils::FileSystem::combine(path, name + ".cmd");
 		if (Utils::FileSystem::exists(esUpdatePath))
 			return Utils::FileSystem::getPreferredPath(esUpdatePath);
 
 		esUpdatePath = Utils::FileSystem::combine(path, name + ".bat");
-		if (Utils::FileSystem::exists(esUpdatePath))
-			return Utils::FileSystem::getPreferredPath(esUpdatePath);
-
-		esUpdatePath = Utils::FileSystem::combine(path, name + ".exe");
 		if (Utils::FileSystem::exists(esUpdatePath))
 			return Utils::FileSystem::getPreferredPath(esUpdatePath);
 	}
@@ -976,7 +976,7 @@ bool Win32ApiSystem::isReadyFlagSet()
 	return Utils::FileSystem::exists(Paths::getUserEmulationStationPath() + "/tmp/emulationstation.ready");
 }
 
-std::vector<std::string> Win32ApiSystem::getVideoModes()
+std::vector<std::string> Win32ApiSystem::getVideoModes(const std::string output)
 {
 	std::vector<std::string> ret;
 
@@ -987,26 +987,29 @@ std::vector<std::string> Win32ApiSystem::getVideoModes()
 	{
 		if (vDevMode.dmDisplayFixedOutput == 0)
 		{			
+			std::string interlaced = (vDevMode.dmDisplayFlags & 2) == 2 ? "i": "";
+			std::string ifoInterlaced = (vDevMode.dmDisplayFlags & 2) == 2 ? " (" + _("Interlaced") + ")": "";
+
 			if (vDevMode.dmBitsPerPel == 32)
 				ret.push_back(
-					std::to_string(vDevMode.dmPelsWidth)+"x"+
-					std::to_string(vDevMode.dmPelsHeight)+"x"+
-					std::to_string(vDevMode.dmBitsPerPel)+"x"+
-					std::to_string(vDevMode.dmDisplayFrequency) + ":" +
+					std::to_string(vDevMode.dmPelsWidth)+"x" +
+					std::to_string(vDevMode.dmPelsHeight)+"x" +
+					std::to_string(vDevMode.dmBitsPerPel)+"x" +
+					std::to_string(vDevMode.dmDisplayFrequency) + interlaced + ":" +
 					std::to_string(vDevMode.dmPelsWidth) + "x" +
 					std::to_string(vDevMode.dmPelsHeight) + " " +
-					std::to_string(vDevMode.dmDisplayFrequency) + "Hz");
+					std::to_string((vDevMode.dmDisplayFlags & 2) == 2 ? vDevMode.dmDisplayFrequency * 2 : vDevMode.dmDisplayFrequency) + "Hz" + ifoInterlaced);
 			else
 			{
 				ret.push_back(
 					std::to_string(vDevMode.dmPelsWidth) + "x" +
 					std::to_string(vDevMode.dmPelsHeight) + "x" +
 					std::to_string(vDevMode.dmBitsPerPel) + "x" +
-					std::to_string(vDevMode.dmDisplayFrequency) + ":" +
+					std::to_string(vDevMode.dmDisplayFrequency) + interlaced + ":" +
 					std::to_string(vDevMode.dmPelsWidth) + "x" +
 					std::to_string(vDevMode.dmPelsHeight) + "x" +
 					std::to_string(vDevMode.dmBitsPerPel) + " " +
-					std::to_string(vDevMode.dmDisplayFrequency) + "Hz");
+					std::to_string((vDevMode.dmDisplayFlags & 2) == 2 ? vDevMode.dmDisplayFrequency * 2 : vDevMode.dmDisplayFrequency) + "Hz" + ifoInterlaced);
 			}				
 		}
 
@@ -1163,7 +1166,10 @@ bool Win32ApiSystem::setPlaneMode(bool enable)
 	return false;
 }
 
-
+bool Win32ApiSystem::forgetBluetoothControllers()
+{
+	return executeScript("batocera-bluetooth forgetBT");
+}
 
 #endif
 

@@ -25,6 +25,8 @@ public:
 	const std::set<ScraperMediaSource>& getSupportedMedias() override;
 
 private:
+	bool ensureToken();
+
 	std::string mToken;
 	Utils::Time::DateTime mTokenDate;
 };

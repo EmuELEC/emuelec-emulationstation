@@ -1,8 +1,8 @@
 #include "GuiNetPlay.h"
 #include "Window.h"
 #include <string>
-#include <fcntl.h>
 #include <future>
+#include <fcntl.h>
 #include "Log.h"
 #include "Settings.h"
 #include "SystemConf.h"
@@ -161,15 +161,15 @@ static std::map<std::string, std::string> coreList =
 #endif
 };
 
-GuiNetPlay::GuiNetPlay(Window* window) 
+GuiNetPlay::GuiNetPlay(Window* window)
 	: GuiComponent(window), 
 	mBusyAnim(window),
 	mBackground(window, ":/frame.png"),
 	mGrid(window, Vector2i(1, 3)),
 	mList(nullptr),
-	mLanLobbySocket(-1), 
+	mLanLobbySocket(-1),
 	mLanLobbySocketTimeout(0)
-{
+{	
 	addChild(&mBackground);
 	addChild(&mGrid);
 
@@ -187,6 +187,7 @@ GuiNetPlay::GuiNetPlay(Window* window)
 
 	mTitle = std::make_shared<TextComponent>(mWindow, _("CONNECT TO NETPLAY"), theme->Title.font, theme->Title.color, ALIGN_CENTER);
 	mSubtitle = std::make_shared<TextComponent>(mWindow, _("Select a game lobby to join"), theme->TextSmall.font, theme->TextSmall.color, ALIGN_CENTER);
+	
 	mHeaderGrid->setEntry(mTitle, Vector2i(0, 1), false, true);
 	mHeaderGrid->setEntry(mSubtitle, Vector2i(0, 3), false, true);
 
@@ -291,7 +292,7 @@ void GuiNetPlay::startRequest()
 void GuiNetPlay::update(int deltaTime)
 {
 	GuiComponent::update(deltaTime);
-
+		
 	if (mLanLobbySocketTimeout < 20000) // allow receiving answers from the LAN for 20 seconds
 	{
 		mLanLobbySocketTimeout += deltaTime;
@@ -321,7 +322,7 @@ void GuiNetPlay::update(int deltaTime)
 }
 
 #if WIN32
-static std::vector<std::string> getBroadcastAddresses()
+static std::vector<std::string> getBroadcastAddresses() 
 {
 	std::vector<std::string> ret;
 
@@ -331,34 +332,34 @@ static std::vector<std::string> getBroadcastAddresses()
 
 	pAddresses = (IP_ADAPTER_ADDRESSES*)malloc(outBufLen);
 	if (pAddresses == nullptr)
-		return ret;
+		return ret;	
 
 	dwRetVal = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX, nullptr, pAddresses, &outBufLen);
-	if (dwRetVal != NO_ERROR)
+	if (dwRetVal != NO_ERROR) 
 	{
 		free(pAddresses);
 		return ret;
 	}
-
-	for (pCurrAddress = pAddresses; pCurrAddress != nullptr; pCurrAddress = pCurrAddress->Next)
+	
+	for (pCurrAddress = pAddresses; pCurrAddress != nullptr; pCurrAddress = pCurrAddress->Next) 
 	{
-		if (pCurrAddress->OperStatus == IfOperStatusUp && pCurrAddress->FirstUnicastAddress)
+		if (pCurrAddress->OperStatus == IfOperStatusUp && pCurrAddress->FirstUnicastAddress) 
 		{
 			sockaddr_in* sa = (sockaddr_in*)pCurrAddress->FirstUnicastAddress->Address.lpSockaddr;
 			sockaddr_in* mask = (sockaddr_in*)pCurrAddress->FirstUnicastAddress->OnLinkPrefixLength;
 
 			if (sa->sin_family != AF_INET)
 				continue;
-
+			
 			uint32_t ip = sa->sin_addr.s_addr;
 			uint32_t subnetMask = htonl(~((1 << (32 - pCurrAddress->FirstUnicastAddress->OnLinkPrefixLength)) - 1));
 			uint32_t broadcast = ip | ~subnetMask;
 
 			struct in_addr broadcastInAddr;
 			broadcastInAddr.s_addr = broadcast;
-
+				
 			std::string broadcastAddr = inet_ntoa(broadcastInAddr);
-			ret.push_back(broadcastAddr);
+			ret.push_back(broadcastAddr);							
 		}
 	}
 
@@ -369,7 +370,7 @@ static std::vector<std::string> getBroadcastAddresses()
 		if (it != ret.cend())
 			ret.erase(it);
 	}
-
+	
 	free(pAddresses);
 	return ret;
 }
@@ -394,7 +395,7 @@ void GuiNetPlay::lanLobbyRequest()
 
 		int broadcastEnable = 1;
 		setsockopt(mLanLobbySocket, SOL_SOCKET, SO_BROADCAST, (const char*)&broadcastEnable, sizeof(broadcastEnable));
-
+	
 		int on = 1;
 		setsockopt(mLanLobbySocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
 
@@ -404,7 +405,7 @@ void GuiNetPlay::lanLobbyRequest()
 		bindAddr.sin_port = htons(0);
 		bindAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-		if (bind(mLanLobbySocket, (struct sockaddr*)&bindAddr, sizeof(bindAddr)) < 0)
+		if (bind(mLanLobbySocket, (struct sockaddr*)&bindAddr, sizeof(bindAddr)) < 0) 
 		{
 			closesocket(mLanLobbySocket);
 			WSACleanup();
@@ -439,8 +440,8 @@ void GuiNetPlay::lanLobbyRequest()
 		struct sockaddr_in broadcastAddr;
 		memset(&broadcastAddr, 0, sizeof(broadcastAddr));
 		broadcastAddr.sin_family = AF_INET;
-		broadcastAddr.sin_port = htons(port);
-		broadcastAddr.sin_addr.s_addr = inet_addr(address.c_str());
+		broadcastAddr.sin_port = htons(port);		
+		broadcastAddr.sin_addr.s_addr = inet_addr(address.c_str());		
 
 		sendto(mLanLobbySocket, (const char*)&query_magic, sizeof(query_magic), 0, (struct sockaddr*)&broadcastAddr, sizeof(broadcastAddr));
 	}
@@ -452,7 +453,7 @@ void GuiNetPlay::lanLobbyRequest()
 	broadcastAddr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
 	sendto(mLanLobbySocket, &query_magic, sizeof(query_magic), 0, (struct sockaddr*)&broadcastAddr, sizeof(broadcastAddr));
-#endif
+#endif	
 }
 
 bool GuiNetPlay::input(InputConfig* config, Input input)
@@ -869,7 +870,7 @@ bool GuiNetPlay::populateFromJson(const std::string json)
 		if (fields.HasMember("mitm_port") && fields["mitm_port"].IsInt())
 			game.mitm_port = fields["mitm_port"].GetInt();
 
-		if (fields.HasMember("mitm_session") && fields["mitm_session"].IsInt())
+		if (fields.HasMember("mitm_session") && fields["mitm_session"].IsString())
 			game.mitm_session = fields["mitm_session"].GetString();
 		
 		if (fields.HasMember("fixed") && fields["fixed"].IsBool())
@@ -885,6 +886,7 @@ bool GuiNetPlay::populateFromJson(const std::string json)
 
 		entries.push_back(std::move(game));
 	}	
+
 
 	std::sort(entries.begin(), entries.end(), [](const LobbyAppEntry& a, const LobbyAppEntry& b) {
 		return a.isCrcValid ? !b.isCrcValid : (a.coreExists && !b.coreExists);

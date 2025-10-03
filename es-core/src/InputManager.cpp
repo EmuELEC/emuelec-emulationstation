@@ -637,9 +637,12 @@ bool InputManager::parseEvent(const SDL_Event& ev, Window* window)
 			}
 #endif
 #endif
+#if WIN32
+			rebuildAllJoysticks(false);
+#else
 			rebuildAllJoysticks();
-
-			if (!addedDeviceName.empty()) {
+#endif
+			if (Settings::getInstance()->getBool("ShowControllerNotifications") && !addedDeviceName.empty()) {
 			  if(isWheel) {
 			    window->displayNotificationMessage(_U("\uF1B9 ") + Utils::String::format(_("%s connected").c_str(), Utils::String::trim(addedDeviceName).c_str()));
 			  } else {
@@ -652,7 +655,7 @@ bool InputManager::parseEvent(const SDL_Event& ev, Window* window)
 	case SDL_JOYDEVICEREMOVED:
 		{
 			auto it = mInputConfigs.find(ev.jdevice.which);
-			if (it != mInputConfigs.cend() && it->second != nullptr) {
+			if (Settings::getInstance()->getBool("ShowControllerNotifications") && it != mInputConfigs.cend() && it->second != nullptr) {
 			  if(it->second->isWheel()) {
 			    window->displayNotificationMessage(_U("\uF1B9 ") + Utils::String::format(_("%s disconnected").c_str(), Utils::String::trim(it->second->getDeviceName()).c_str()));
 			  } else {

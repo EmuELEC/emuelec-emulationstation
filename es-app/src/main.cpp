@@ -41,6 +41,7 @@
 #include "Scripting.h"
 #include "watchers/WatchersManager.h"
 #include "HttpReq.h"
+#include <thread>
 
 #ifdef WIN32
 #include <Windows.h>
@@ -597,7 +598,7 @@ int main(int argc, char* argv[])
 	if (ApiSystem::getInstance()->isScriptingSupported(ApiSystem::PDFEXTRACTION))
 		TextureData::PdfHandler = ApiSystem::getInstance();
 
-	ApiSystem::getInstance()->getIpAdress();
+	ApiSystem::getInstance()->getIpAddress();
 
 	// preload what we can right away instead of waiting for the user to select it
 	// this makes for no delays when accessing content, but a longer startup time
@@ -615,7 +616,12 @@ int main(int argc, char* argv[])
 	TextToSpeech::getInstance()->enable(Settings::getInstance()->getBool("TTS"), false);
 	
 	if (errorMsg == NULL)
+	{
+		if (splashScreen)
+			window.renderSplashScreen(_("Loading theme"));
+
 		ViewController::get()->goToStart(true);
+	}
 
 	window.closeSplashScreen();
 
@@ -882,7 +888,7 @@ int main(int argc, char* argv[])
 		delete window.peekGui();
 
 	if (SystemData::hasDirtySystems())
-		window.renderSplashScreen(_("SAVING METADATAS. PLEASE WAIT..."));
+		window.renderSplashScreen(_("SAVING METADATA. PLEASE WAIT..."));
 
 	ImageIO::saveImageCache();
 	MameNames::deinit();

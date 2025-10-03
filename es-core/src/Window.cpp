@@ -559,22 +559,22 @@ void Window::renderSindenBorders()
 	    // SETTING FOR DEBUGGING BORDERS
 	    drawGunBorders = true;
 
-	if (drawGunBorders)
+	if (drawGunBorders && !mRenderScreenSaver)
 	{
-		int outerBorderWidth = Renderer::getScreenHeight() * 0.00f;
-		int innerBorderWidth = Renderer::getScreenHeight() * 0.02f;
+		int outerBorderWidth = ceil(Renderer::getScreenWidth() * 0.00f);
+		int innerBorderWidth = ceil(Renderer::getScreenWidth() * 0.02f);
 
 		// sinden.bordersize=thin/big/medium
 		auto bordersize = SystemConf::getInstance()->get("controllers.guns.borderssize");
 		if (bordersize == "thin")
 		{
-			outerBorderWidth = Renderer::getScreenHeight() * 0.00f;
-			innerBorderWidth = Renderer::getScreenHeight() * 0.01f;
+			outerBorderWidth = ceil(Renderer::getScreenWidth() * 0.00f);
+			innerBorderWidth = ceil(Renderer::getScreenWidth() * 0.01f);
 		}
 		else if (bordersize == "big")
 		{
-			outerBorderWidth = Renderer::getScreenHeight() * 0.01f;
-			innerBorderWidth = Renderer::getScreenHeight() * 0.02f;
+			outerBorderWidth = ceil(Renderer::getScreenWidth() * 0.01f);
+			innerBorderWidth = ceil(Renderer::getScreenWidth() * 0.02f);
 		}
 
 		Renderer::setScreenMargin(0, 0);
@@ -582,6 +582,7 @@ void Window::renderSindenBorders()
 
 		const unsigned int outerBorderColor = 0x000000FF;
 		unsigned int innerBorderColor = 0xFFFFFFFF;
+		unsigned int externalBorderColor = 0x000000CC;
 
 		auto bordersColor = SystemConf::getInstance()->get("controllers.guns.borderscolor");
 		if (bordersColor == "red")   innerBorderColor = 0xFF0000FF;
@@ -589,19 +590,31 @@ void Window::renderSindenBorders()
 		if (bordersColor == "blue")  innerBorderColor = 0x0000FFFF;
 		if (bordersColor == "white") innerBorderColor = 0xFFFFFFFF;
 
+		int borderWidth = 0;
+		int borderOffset = 0;
+
+		std::string bordersRatio = SystemConf::getInstance()->get("controllers.guns.bordersratio");
+		if(bordersRatio == "4:3") {
+		  borderWidth = Renderer::getScreenHeight() / 3 * 4;
+		  borderOffset = (Renderer::getScreenWidth() - borderWidth) / 2;
+		} else {
+		  borderWidth = Renderer::getScreenWidth();
+		  borderOffset = 0;
+		}
+
 		// outer border
-		Renderer::drawRect(0, 0, Renderer::getScreenWidth(), outerBorderWidth, outerBorderColor);
-		Renderer::drawRect(Renderer::getScreenWidth() - outerBorderWidth, 0, outerBorderWidth, Renderer::getScreenHeight(), outerBorderColor);
-		Renderer::drawRect(0, Renderer::getScreenHeight() - outerBorderWidth, Renderer::getScreenWidth(), outerBorderWidth, outerBorderColor);
-		Renderer::drawRect(0, 0, outerBorderWidth, Renderer::getScreenHeight(), outerBorderColor);
+		Renderer::drawRect(borderOffset, 0, borderWidth, outerBorderWidth, outerBorderColor);
+		Renderer::drawRect(borderOffset + borderWidth - outerBorderWidth, 0, outerBorderWidth, Renderer::getScreenHeight(), outerBorderColor);
+		Renderer::drawRect(borderOffset, Renderer::getScreenHeight() - outerBorderWidth, borderWidth, outerBorderWidth, outerBorderColor);
+		Renderer::drawRect(borderOffset, 0, outerBorderWidth, Renderer::getScreenHeight(), outerBorderColor);
 
 		// inner border
-		Renderer::drawRect(outerBorderWidth, outerBorderWidth, Renderer::getScreenWidth() - outerBorderWidth * 2, innerBorderWidth, innerBorderColor);
-		Renderer::drawRect(Renderer::getScreenWidth() - outerBorderWidth - innerBorderWidth, outerBorderWidth, innerBorderWidth, Renderer::getScreenHeight() - outerBorderWidth * 2, innerBorderColor);
-		Renderer::drawRect(outerBorderWidth, Renderer::getScreenHeight() - outerBorderWidth - innerBorderWidth, Renderer::getScreenWidth() - outerBorderWidth * 2, innerBorderWidth, innerBorderColor);
-		Renderer::drawRect(outerBorderWidth, outerBorderWidth, innerBorderWidth, Renderer::getScreenHeight() - outerBorderWidth * 2, innerBorderColor);
+		Renderer::drawRect(borderOffset + outerBorderWidth, outerBorderWidth, borderWidth - outerBorderWidth * 2, innerBorderWidth, innerBorderColor);
+		Renderer::drawRect(borderOffset + borderWidth - outerBorderWidth - innerBorderWidth, outerBorderWidth, innerBorderWidth, Renderer::getScreenHeight() - outerBorderWidth * 2, innerBorderColor);
+		Renderer::drawRect(borderOffset + outerBorderWidth, Renderer::getScreenHeight() - outerBorderWidth - innerBorderWidth, borderWidth - outerBorderWidth * 2, innerBorderWidth, innerBorderColor);
+		Renderer::drawRect(borderOffset + outerBorderWidth, outerBorderWidth, innerBorderWidth, Renderer::getScreenHeight() - outerBorderWidth * 2, innerBorderColor);
 
-		Renderer::setScreenMargin(outerBorderWidth + innerBorderWidth, outerBorderWidth + innerBorderWidth);
+		Renderer::setScreenMargin(borderOffset + outerBorderWidth + innerBorderWidth, outerBorderWidth + innerBorderWidth);
 		Renderer::setMatrix(Transform4x4f::Identity());
 	}
 	else
@@ -785,7 +798,7 @@ void Window::render()
 
 	// Render guns aims
 	auto guns = InputManager::getInstance()->getGuns();
-	if (!mRenderScreenSaver && guns.size())
+	if (!mRenderScreenSaver && guns.size() && Settings::DrawGunCrosshair())
 	{
 		auto margin = Renderer::setScreenMargin(0, 0);
 		Renderer::setMatrix(Transform4x4f::Identity());
@@ -921,15 +934,15 @@ std::string Window::getCustomSplashScreenImage() {
   return DEFAULT_SPLASH_IMAGE;
 }
 
-void Window::setCustomSplashScreen(std::string imagePath, std::string customText)
+void Window::setCustomSplashScreen(std::string imagePath, std::string customText, IBindable* bindable)
 {
 	if (Settings::getInstance()->getBool("HideWindow"))
 		return;
 
 	if (!Utils::FileSystem::exists(imagePath))
-		mSplash = std::make_shared<Splash>(this, getCustomSplashScreenImage(), false);
+		mSplash = std::make_shared<Splash>(this, getCustomSplashScreenImage(), false, bindable);
 	else
-		mSplash = std::make_shared<Splash>(this, imagePath, false);
+		mSplash = std::make_shared<Splash>(this, imagePath, false, bindable);
 
 	mSplash->update(customText);
 }
