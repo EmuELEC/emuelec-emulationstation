@@ -3464,7 +3464,7 @@ msgstr "START"
 
 msgctxt "joystick"
 msgid "SELECT"
-msgstr "SELEC"
+msgstr "SELECT"
 
 msgctxt "joystick"
 msgid "D-PAD UP"
