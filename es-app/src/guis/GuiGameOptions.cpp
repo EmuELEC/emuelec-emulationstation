@@ -33,6 +33,7 @@
 #include <vector>
 #include <regex>
 #include "utils/Platform.h"
+#include "guis/GuiMoveToFolder.h"
 
 namespace
 {
@@ -531,6 +532,27 @@ GuiGameOptions::GuiGameOptions(Window* window, FileData* game) : GuiComponent(wi
 				});
 			}
 		}
+
+#ifdef _ENABLEEMUELEC
+		// A single "FOLDER OPTIONS" entry that pushes GuiMoveToFolder, whose
+		// own constructor decides which of "MOVE TO FOLDER" (for a game),
+		// "CREATE FOLDER" (sibling to whatever's selected), and "REMOVE
+		// FOLDER" (for a folder) actually apply to 'game' and builds them
+		// out of the same static helpers this used to call directly, three
+		// separate entries, right here. Deliberately NOT gated on
+		// game->getType() != FOLDER: a folder selected here still gets its
+		// own "FOLDER OPTIONS" (CREATE FOLDER next to it, REMOVE FOLDER for
+		// it). Only the root of a system can't have this - it has no
+		// parent - so that's the one case still worth guarding against.
+		if (game->getSourceFileData()->getParent() != nullptr && game->getSystem()->isGameSystem())
+		{
+			mMenu.addEntry(_("FOLDER OPTIONS"), true, [this, game]
+			{
+				mWindow->pushGui(new GuiMoveToFolder(mWindow, game));
+				close();
+			});
+		}
+#endif
 
 		if (ApiSystem::getInstance()->isScriptingSupported(ApiSystem::GAMESETTINGS))
 		{

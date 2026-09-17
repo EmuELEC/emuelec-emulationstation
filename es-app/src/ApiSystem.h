@@ -302,6 +302,10 @@ public:
 	virtual std::vector<std::string> backglassThemes();
 	virtual void restartBackglass();
 
+#ifdef _ENABLEEMUELEC
+  virtual std::vector<std::string> getChildFolders(std::string path);
+#endif
+
 protected:
 	ApiSystem();
 

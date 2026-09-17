@@ -2448,3 +2448,20 @@ bool ApiSystem::enableService(std::string name, bool enable)
 	
 	return res;
 }
+
+#ifdef _ENABLEEMUELEC
+std::vector<std::string> ApiSystem::getChildFolders(std::string path) {
+  std::vector<std::string> paths;
+
+  LOG(LogDebug) << "ApiSystem::getChildFolders";
+
+	std::string cmd = "find \"" + path + "\" -maxdepth 1 -mindepth 1 -type d";
+  auto slines = executeEnumerationScript(cmd);
+
+  for (auto sline : slines)
+    {
+      paths.push_back(sline);
+    }
+  return paths;
+}
+#endif
