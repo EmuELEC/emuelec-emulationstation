@@ -53,6 +53,7 @@ struct SystemEnvironmentData
 	std::string mStartPath;
 	std::set<std::string> mSearchExtensions;
 	std::string mLaunchCommand;
+	std::string mSystemCommand;
 	std::set<PlatformIds::PlatformId> mPlatformIds;
 	std::string mGroup;
 
@@ -95,6 +96,7 @@ public:
 	inline const std::set<std::string>& getExtensions() const { return mEnvData->mSearchExtensions; }
 	inline const std::string& getThemeFolder() const { return mMetadata.themeFolder; }
 	inline SystemEnvironmentData* getSystemEnvData() const { return mEnvData; }
+	inline const std::string& getSystemCommand() const { return mEnvData->mSystemCommand; }
 	inline const std::set<PlatformIds::PlatformId>& getPlatformIds() const { return mEnvData->mPlatformIds; }
 	inline bool hasPlatformId(PlatformIds::PlatformId id) { if (!mEnvData) return false; return mEnvData->mPlatformIds.find(id) != mEnvData->mPlatformIds.cend(); }
 	inline const SystemMetadata& getSystemMetadata() const { return mMetadata; }
