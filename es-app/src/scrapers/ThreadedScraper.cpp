@@ -167,6 +167,10 @@ void ThreadedScraper::run()
 			}
 		}
 		
+#ifdef _ENABLEEMUELEC
+		bool anyProgress = false;
+#endif
+
 		for (auto iter = mScraperThreads.cbegin(); iter != mScraperThreads.cend(); ++iter)
 		{
 			if (mExitCode != ASYNC_IN_PROGRESS)
@@ -175,6 +179,11 @@ void ThreadedScraper::run()
 			auto mScraperThread = *iter;
 
 			int state = mScraperThread->updateState();
+#ifdef _ENABLEEMUELEC
+			if (state != ASYNC_IN_PROGRESS)
+				anyProgress = true;
+#endif
+
 			switch (state)
 			{
 			case ASYNC_DONE:
@@ -207,6 +216,13 @@ void ThreadedScraper::run()
 				}
 			}
 		}
+
+#ifdef _ENABLEEMUELEC
+		// Nothing finished this pass: all requests are waiting on the network.
+		// Sleep briefly instead of busy-polling curl at 100% CPU.
+		if (!anyProgress && mExitCode == ASYNC_IN_PROGRESS)
+			std::this_thread::sleep_for(std::chrono::milliseconds(20));
+#endif
 	}
 	
 	if (mExitCode == ASYNC_DONE)
