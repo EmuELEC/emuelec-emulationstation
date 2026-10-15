@@ -33,6 +33,8 @@
 #include <vector>
 #include <regex>
 #include "utils/Platform.h"
+#include "guis/GuiFolderOptions.h"
+#include "views/gamelist/ISimpleGameListView.h"
 
 namespace
 {
@@ -486,11 +488,49 @@ GuiGameOptions::GuiGameOptions(Window* window, FileData* game) : GuiComponent(wi
 		fromPlaceholder = true;
 	else if (game->getType() == FOLDER && mSystem->isCollection()) // >getName() == CollectionSystemManager::get()->getCustomCollectionsBundle()->getName())
 		fromPlaceholder = true;
+#ifdef _ENABLEEMUELEC
+	// The ".." back-entry (ISimpleGameListView::createParentFolderData()) is
+	// the same stand-in for "the folder currently being browsed" that the
+	// "No Entries Found" placeholder above already is - just for when that
+	// folder isn't empty instead of when it is (see the two functions'
+	// shared mLastParentFolderData, and BasicGameListView::populateList(),
+	// which only ever adds one or the other). It was never added to the
+	// tree, so none of the OPTIONS group below (SCRAPE, EDIT FOLDER
+	// METADATA, etc.) makes sense for it either - it gets its own small
+	// CREATE FOLDER / REMOVE FOLDER block below instead, same as the
+	// placeholder does.
+	else if (game->getPath() == "..")
+		fromPlaceholder = true;
+#endif
 
 	if (!fromPlaceholder && !isCustomCollection && UIModeController::getInstance()->isUIModeFull())
 	{
 		mMenu.addGroup(_("OPTIONS"));
-		
+
+#ifdef _ENABLEEMUELEC
+		// A single "FOLDER OPTIONS" entry that pushes GuiFolderOptions, whose
+		// own constructor decides which of "MOVE TO FOLDER" (a game or a
+		// folder), "CREATE FOLDER" (sibling to whatever's selected), and
+		// "RENAME FOLDER" / "REMOVE FOLDER" (a folder only) actually apply to
+		// 'game' and builds them out of the same static helpers this used to
+		// call directly, right here. Deliberately NOT gated on
+		// game->getType() != FOLDER: a folder selected here still gets its
+		// own "FOLDER OPTIONS" (CREATE FOLDER next to it, MOVE/RENAME/REMOVE
+		// FOLDER for it). Only the root of a system can't have this - it has
+		// no parent - so that's the one case still worth guarding against.
+		// Listed first in the group - ahead of SCRAPE and everything else
+		// below it - since it's the action most likely to be reached for
+		// right after picking a game or folder here.
+		if (game->getSourceFileData()->getParent() != nullptr && game->getSystem()->isGameSystem())
+		{
+			mMenu.addEntry(_("FOLDER OPTIONS"), true, [this, game]
+			{
+				mWindow->pushGui(new GuiFolderOptions(mWindow, game));
+				close();
+			});
+		}
+#endif
+
 		mMenu.addEntry(_("SCRAPE"), false, [this, game]
 		{
 			ScraperSearchParams scraperParams;
@@ -564,6 +604,52 @@ GuiGameOptions::GuiGameOptions(Window* window, FileData* game) : GuiComponent(wi
 			close();
 		});
 	}
+
+#ifdef _ENABLEEMUELEC
+	// 'game' here is either the "No Entries Found" placeholder or the ".."
+	// back-entry - the same stand-in for "the folder currently being
+	// browsed" either way, just for when that folder is empty vs. when it
+	// isn't (see ISimpleGameListView::createNoEntriesPlaceholder() /
+	// createParentFolderData(), and mLastParentFolderData shared by both).
+	// The whole "OPTIONS" group above is skipped for both (fromPlaceholder),
+	// since 'game' itself was never added to the tree - so instead offer the
+	// same "FOLDER OPTIONS" screen a selected folder gets, resolved against
+	// whichever folder the gamelist is actually browsing right now
+	// (getCurrentFolder()). That screen then offers CREATE FOLDER IN FOLDER
+	// (inside the current folder), CREATE FOLDER (next to it), and MOVE /
+	// RENAME / REMOVE for the current folder itself.
+	if ((game->isPlaceHolder() || game->getPath() == "..") && mSystem->isGameSystem() && UIModeController::getInstance()->isUIModeFull())
+	{
+		auto simpleView = dynamic_cast<ISimpleGameListView*>(getGamelist());
+		FolderData* currentFolder = simpleView != nullptr ? simpleView->getCurrentFolder() : nullptr;
+
+		if (currentFolder != nullptr)
+		{
+			mMenu.addGroup(_("OPTIONS"));
+
+			// getCurrentFolder() only ever returns a folder actually navigated
+			// into, never the system's ROM root, so it always has a parent -
+			// but check anyway, the same guard the regular "FOLDER OPTIONS"
+			// entry above uses. At the root, just offer CREATE FOLDER inside it.
+			if (currentFolder->getParent() != nullptr)
+			{
+				mMenu.addEntry(_("FOLDER OPTIONS"), true, [this, currentFolder]
+				{
+					mWindow->pushGui(new GuiFolderOptions(mWindow, currentFolder));
+					close();
+				});
+			}
+			else
+			{
+				mMenu.addEntry(_("CREATE FOLDER"), false, [this, currentFolder]
+				{
+					GuiFolderOptions::createFolder(mWindow, currentFolder);
+					close();
+				});
+			}
+		}
+	}
+#endif
 
 	if (Renderer::ScreenSettings::fullScreenMenus())
 	{	
