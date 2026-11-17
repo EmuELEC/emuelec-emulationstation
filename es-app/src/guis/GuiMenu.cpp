@@ -5570,31 +5570,43 @@ void GuiMenu::openQuitMenu_static(Window *window, bool quickAccessMenu, bool ani
 			}, _("NO"), nullptr));
 		}, "iconAdvanced");
 		
-		// these are special entries for specific devices, they are hidden by default behind a setting in emuelec.conf extra_quit_menu.enable
-if (SystemConf::getInstance()->getBool("extra_quit_menu.enabled", true)) {
-		s->addEntry(_("REBOOT TO USB"), false, [window] {
-			window->pushGui(new GuiMsgBox(window, _("REALLY REBOOT TO USB?"), _("YES"),
-				[] {
-				Scripting::fireEvent("quit", "usb");
-				Utils::Platform::ProcessStartInfo("devmem 0xff6345d0 8 1").run();
-				Utils::Platform::ProcessStartInfo("sync").run();
-				Utils::Platform::ProcessStartInfo("systemctl reboot").run();
-				Utils::Platform::quitES(Utils::Platform::QuitMode::QUIT);
-			}, _("NO"), nullptr));
-		}, "iconAdvanced");
+		// special entries, only shown on 2nd gen (raven) and 3rd gen Cubes (gazelle)
+		std::string board;
+		std::ifstream dtId("/proc/device-tree/amlogic-dt-id");
+		dtId >> board;
+		board = board.c_str();
 
-		s->addEntry(_("Reboot to CoreELEC"), false, [window] {
-			window->pushGui(new GuiMsgBox(window, _("REBOOT TO COREELEC?"), _("YES"),
-				[] {
-				Scripting::fireEvent("quit", "coreelec");
-				Utils::Platform::ProcessStartInfo("devmem 0xff6345d0 8 2").run();
-				Utils::Platform::ProcessStartInfo("sync").run();
-				Utils::Platform::ProcessStartInfo("systemctl reboot").run();
+		const bool raven = (board == "g12brevb_raven_2g");
+		const bool gazelle = (board == "t7_gazelle_pvt");
+
+		if (raven || gazelle) {
+			// target: "usb" or "coreelec"
+			auto rebootTo = [raven](const std::string& target) {
+				Scripting::fireEvent("quit", target);
+
+				if (raven) {
+					Utils::Platform::ProcessStartInfo(std::string("devmem 0xff6345d0 8 ") + (target == "usb" ? "1" : "2")).run();
+					Utils::Platform::ProcessStartInfo("sync").run();
+					Utils::Platform::ProcessStartInfo("systemctl reboot").run();
+				} else {
+					Utils::Platform::ProcessStartInfo("sync").run();
+					Utils::Platform::ProcessStartInfo(target == "usb" ? "reboot rescueparty" : "reboot rpmbp").run();
+				}
+
 				Utils::Platform::quitES(Utils::Platform::QuitMode::QUIT);
-			}, _("NO"), nullptr));
-		}, "iconAdvanced");
+			};
+
+			s->addEntry(_("REBOOT TO USB"), false, [window, rebootTo] {
+				window->pushGui(new GuiMsgBox(window, _("REALLY REBOOT TO USB?"), _("YES"),
+					[rebootTo] { rebootTo("usb"); }, _("NO"), nullptr));
+			}, "iconAdvanced");
+
+			s->addEntry(_("Reboot to CoreELEC"), false, [window, rebootTo] {
+				window->pushGui(new GuiMsgBox(window, _("REBOOT TO COREELEC?"), _("YES"),
+					[rebootTo] { rebootTo("coreelec"); }, _("NO"), nullptr));
+			}, "iconAdvanced");
+		}
 	}
-}
 
 	s->setUpdateType(ComponentListFlags::UPDATE_ALWAYS);
 	// AUTO SHUTDOWN TIMEOUT
