@@ -1,3 +1,4 @@
+#include "Gamelist.h"
 #include "GuiGamelistOptions.h"
 #include "guis/GuiGamelistFilter.h"
 #include "scrapers/Scraper.h"
@@ -504,6 +505,7 @@ void GuiGamelistOptions::openMetaDataEd()
 			auto pThis = this;
 
 			CollectionSystemManager::get()->deleteCollectionFiles(file);
+			removeFromGamelist(file);
 			file->deleteGameFiles();
 
 			auto view = ViewController::get()->getGameListView(system, false);

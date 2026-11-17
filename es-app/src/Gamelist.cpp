@@ -333,6 +333,40 @@ bool removeFromGamelistRecovery(FileData* file)
 	return false;
 }
 
+bool removeFromGamelist(FileData* file)
+{
+	SystemData* system = file->getSourceFileData()->getSystem();
+	if (system == nullptr)
+		return false;
+
+	std::string xmlPath = system->getGamelistPath(false);
+	if (!Utils::FileSystem::exists(xmlPath))
+		return false;
+
+	pugi::xml_document doc;
+	if (!doc.load_file(WINSTRINGW(xmlPath).c_str()))
+		return false;
+
+	pugi::xml_node root = doc.child("gameList");
+	if (!root)
+		return false;
+
+	std::string target = Utils::FileSystem::getCanonicalPath(file->getPath());
+
+	for (pugi::xml_node node : root.children())
+	{
+		pugi::xml_node path = node.child("path");
+		if (path && Utils::FileSystem::getCanonicalPath(Utils::FileSystem::resolveRelativePath(path.text().get(), system->getStartPath(), true)) == target)
+		{
+			root.remove_child(node);
+			removeFromGamelistRecovery(file);
+			return doc.save_file(WINSTRINGW(system->getGamelistPath(true)).c_str());
+		}
+	}
+
+	return false;
+}
+
 bool hasDirtyFile(SystemData* system)
 {
 	if (system == nullptr || !system->isGameSystem() || (!Settings::HiddenSystemsShowGames() && !system->isVisible())) // || system->hasPlatformId(PlatformIds::IMAGEVIEWER))
