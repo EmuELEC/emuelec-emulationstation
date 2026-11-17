@@ -1,3 +1,4 @@
+#include "Gamelist.h"
 #include "GuiGameOptions.h"
 #include "guis/GuiGamelistFilter.h"
 #include "scrapers/Scraper.h"
@@ -628,6 +629,7 @@ void GuiGameOptions::deleteGame(FileData* file)
 		sys = sys->getParentGroupSystem();
 
 	CollectionSystemManager::get()->deleteCollectionFiles(sourceFile);
+	removeFromGamelist(sourceFile);
 	sourceFile->deleteGameFiles();
 
 	auto view = ViewController::get()->getGameListView(sys, false);

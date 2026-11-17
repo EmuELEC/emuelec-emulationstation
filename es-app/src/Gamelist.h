@@ -20,6 +20,7 @@ void resetGamelistUsageData(SystemData* system);
 
 bool saveToGamelistRecovery(FileData* file);
 bool removeFromGamelistRecovery(FileData* file);
+bool removeFromGamelist(FileData* file);
 
 bool saveToXml(FileData* file, const std::string& fileName, bool fullPaths = false);
 
