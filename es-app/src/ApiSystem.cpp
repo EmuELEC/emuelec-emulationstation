@@ -24,6 +24,7 @@
 #include <fstream>
 #include <chrono>
 #include <thread>
+#include <set>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -2448,3 +2449,669 @@ bool ApiSystem::enableService(std::string name, bool enable)
 	
 	return res;
 }
+
+#ifdef _ENABLEEMUELEC
+namespace
+{
+  // Runs 'work(i)' once for each i in [0, count). Only actually spreads that
+  // across a Utils::ThreadPool (one thread per core) when this device
+  // reports more than one core - the same "hardWareCoreCount > 1" check
+  // ApiSystem::extractPdfImages() above already makes before parallelizing
+  // its own work, and for the same reason: std::thread::hardware_concurrency()
+  // can come back 0 (when it can't tell) or 1 on a single-core device, and a
+  // ThreadPool with zero worker threads for its queue to run on spins
+  // forever in wait() rather than actually finishing, while even a single
+  // worker there just means that thread and wait()'s own busy-wait loop
+  // fighting each other for the same one core, for no gain over doing the
+  // work directly, in order, right here.
+  void runFanned(size_t count, const std::function<void(size_t)>& work)
+  {
+    if (count == 0)
+      return;
+
+    // Diagnostic timing - temporary, see ApiSystem::getChildFolders()'s own
+    // note. Reports the core count runFanned() actually saw so a genuinely
+    // single/zero-core device (forced onto the serial fallback below, no
+    // parallelism at all) can be told apart from one that should be getting
+    // real concurrency here but for some other reason isn't.
+    unsigned cores = std::thread::hardware_concurrency();
+    StopWatch stopWatch("ApiSystem::runFanned(" + std::to_string(count) + " items, " + std::to_string(cores) + " cores reported) :", LogDebug);
+
+    if (cores > 1)
+    {
+      Utils::ThreadPool pool(1);
+
+      for (size_t i = 0; i < count; i++)
+        pool.queueWorkItem([&work, i] { work(i); });
+
+      pool.wait();
+    }
+    else
+    {
+      LOG(LogDebug) << "ApiSystem::runFanned - falling back to serial (hardware_concurrency() <= 1)";
+
+      for (size_t i = 0; i < count; i++)
+        work(i);
+    }
+  }
+
+  // Lists 'systemRootPath's own direct child folders, filtering out the same
+  // reserved names (media/medias, images, manuals, videos, assets, artwork,
+  // downloaded_* and anything hidden) scanSystemFolderTree() and
+  // topLevelFolderSetChanged() both used to filter after running this exact
+  // listing as a separate "find <root> -mindepth 1 -maxdepth 1 -type d
+  // -print" subprocess.
+  //
+  // That "find" turned out to be the actual multi-minute hang reported for
+  // MAME's ROM root - a directory holding tens of thousands of flat ROM
+  // files with no subfolders of their own. Logging confirmed the freeze sat
+  // right at that command, never returning. The device's "find" is BusyBox's,
+  // which - unlike GNU find - does not appear to trust "d_type" from
+  // readdir() to answer "-type d" and instead lstat()s every single entry to
+  // find out, turning "list the immediate children" into tens of thousands
+  // of blocking stat() calls on exactly the kind of slow storage (SD card,
+  // USB stick, SMB/NFS share) that makes each one expensive. Piping that many
+  // result lines back through executeEnumerationScript()'s popen()+fgets()
+  // loop only adds to it.
+  //
+  // SystemData::populateFolder() walks this identical MAME directory, with
+  // this identical reserved-name exclusion list, at every single ES boot
+  // with no reported slowness, because it never shells out to "find" at all
+  // - it calls Utils::FileSystem::getDirectoryFiles(), which opendir()s the
+  // folder once and reads each entry's type straight off dirent::d_type (a
+  // stat() is only paid for a symlink entry, to resolve what it points at).
+  // Reusing that same in-process listing here - instead of a second,
+  // subprocess-based walk of the same folder - is what actually fixes the
+  // hang, not just hides it behind a spinner.
+  std::vector<std::string> listTopLevelSubfolders(const std::string& systemRootPath)
+  {
+    StopWatch stopWatch("ApiSystem::listTopLevelSubfolders(" + systemRootPath + ") :", LogDebug);
+
+    std::vector<std::string> subRoots;
+
+    for (auto& fi : Utils::FileSystem::getDirectoryFiles(systemRootPath))
+    {
+      if (!fi.directory)
+        continue;
+
+      std::string name = Utils::String::toLower(Utils::FileSystem::getFileName(fi.path));
+
+      if (name.size() && name[0] == '.')
+        continue;
+
+      if (name == "media" || name == "medias" || name == "images" || name == "manuals" ||
+        name == "videos" || name == "assets" || name == "artwork" ||
+        Utils::String::startsWith(name, "downloaded_"))
+        continue;
+
+      subRoots.push_back(fi.path);
+    }
+
+    LOG(LogDebug) << "ApiSystem::listTopLevelSubfolders(" << systemRootPath << ") - " << subRoots.size() << " top-level folders found";
+
+    return subRoots;
+  }
+}
+
+std::vector<std::string> ApiSystem::scanSystemFolderTree(const std::string& systemRootPath)
+{
+  // Same reserved-name list SystemData::populateFolder() already skips when
+  // it scans a system's ROM folder to build the actual gamelist tree
+  // (media/medias, images, manuals, videos, assets, downloaded_* and
+  // artwork, plus anything hidden) - only ever excluded here at
+  // 'systemRootPath's own direct-child level, exactly as it was when this
+  // was a single "-ipath"/"-prune" find call over the whole tree (kept
+  // deliberately plain, portable "-print" rather than "-noleaf"/"-printf" -
+  // see the git history on this function for why: those are GNU-findutils
+  // extensions this device's "find" doesn't recognize, and an unsupported
+  // option makes "find" refuse to run at all, which - since
+  // executeEnumerationScript() only captures stdout, not stderr - came back
+  // as a silent empty result rather than a visible error).
+  //
+  // What's different now is that this exclusion decision, and the recursive
+  // walk of everything that survives it, are split into two steps so the
+  // second one can be fanned out across threads instead of running as one
+  // serial "find" process:
+  //
+  // Step 1: a fast, non-recursive listing of just 'systemRootPath's direct
+  // children, via listTopLevelSubfolders() above - an in-process
+  // opendir()/readdir() walk (the same one SystemData::populateFolder()
+  // already relies on for this exact folder at every boot) rather than a
+  // "find -mindepth 1 -maxdepth 1 -type d" subprocess. That "find" is what
+  // was actually hanging for multiple minutes on MAME-sized flat ROM
+  // directories - see listTopLevelSubfolders()'s own comment for why.
+  //
+  // Diagnostic timing - temporary, see getChildFolders()'s own note above.
+  StopWatch stopWatch("ApiSystem::scanSystemFolderTree(" + systemRootPath + ") total :", LogDebug);
+
+  std::vector<std::string> subRoots = listTopLevelSubfolders(systemRootPath);
+
+  if (subRoots.empty())
+    return std::vector<std::string>();
+
+  // Step 2: one plain recursive "find <subRoot> -type d -print" per
+  // surviving top-level folder - no "-prune" needed here at all, since the
+  // reserved-name exclusion only ever applied at the top level above, so
+  // everything under a kept folder is fair game - fanned out with
+  // runFanned() above (falls back to running them one at a time in order on
+  // a single-core device) so a ROM library with several top-level folders -
+  // one per organizational folder the user made, one per arcade
+  // compilation, etc - walks them all at the same time instead of one
+  // process working through the whole tree alone. This only ever runs on
+  // the very first scan for a system, or when isFolderTreeStale() below
+  // catches an outside change - every other lookup is served straight out
+  // of folders.xml - but that first scan is exactly the one that can take a
+  // while on a big library, so it's the one worth parallelizing.
+  //
+  // Each queued item writes into its own index of a vector sized up front,
+  // so no locking is needed between them.
+  LOG(LogDebug) << "ApiSystem::scanSystemFolderTree(" << systemRootPath << ") - " << subRoots.size() << " top-level folders to recurse into";
+
+  std::vector<std::vector<std::string>> perRootResults(subRoots.size());
+
+  runFanned(subRoots.size(), [this, &perRootResults, &subRoots](size_t i)
+  {
+    std::string cmd = "find \"" + subRoots[i] + "\" -type d -print";
+    perRootResults[i] = executeEnumerationScript(cmd);
+  });
+
+  std::vector<std::string> result;
+  for (auto& sub : perRootResults)
+    for (auto& path : sub)
+      result.push_back(path);
+
+  return result;
+}
+
+std::vector<ApiSystem::FolderCacheEntry> ApiSystem::readSystemFolderTree(const std::string& xmlPath, time_t& rootMtime, bool& ok)
+{
+  std::vector<FolderCacheEntry> entries;
+  rootMtime = 0;
+
+  pugi::xml_document doc;
+  ok = (bool)doc.load_file(WINSTRINGW(xmlPath).c_str());
+  if (!ok)
+    return entries;
+
+  pugi::xml_node root = doc.child("folders");
+  rootMtime = (time_t)strtoll(root.attribute("root_mtime").as_string("0"), nullptr, 10);
+
+  for (pugi::xml_node node = root.child("folder"); node; node = node.next_sibling("folder"))
+  {
+    FolderCacheEntry entry;
+    entry.path = node.text().as_string();
+    entry.mtime = (time_t)strtoll(node.attribute("mtime").as_string("0"), nullptr, 10);
+    entries.push_back(entry);
+  }
+
+  return entries;
+}
+
+void ApiSystem::writeSystemFolderTree(const std::string& xmlPath, const std::vector<FolderCacheEntry>& folders, time_t rootMtime)
+{
+  pugi::xml_document doc;
+  pugi::xml_node root = doc.append_child("folders");
+  root.append_attribute("root_mtime").set_value(std::to_string((long long)rootMtime).c_str());
+
+  for (auto& folder : folders)
+  {
+    pugi::xml_node node = root.append_child("folder");
+    node.append_attribute("mtime").set_value(std::to_string((long long)folder.mtime).c_str());
+    node.text().set(folder.path.c_str());
+  }
+
+  if (!doc.save_file(WINSTRINGW(xmlPath).c_str()))
+    LOG(LogError) << "ApiSystem::writeSystemFolderTree - Error saving \"" << xmlPath << "\"!";
+}
+
+bool ApiSystem::topLevelFolderSetChanged(const std::string& systemRootPath, const std::vector<FolderCacheEntry>& master)
+{
+  // Diagnostic timing - temporary, see getChildFolders()'s own note above.
+  StopWatch stopWatch("ApiSystem::topLevelFolderSetChanged(" + systemRootPath + ") :", LogDebug);
+
+  // Same cheap, non-recursive top-level listing and reserved-name filter
+  // scanSystemFolderTree()'s own "step 1" uses, via listTopLevelSubfolders()
+  // above - an in-process directory read, not a "find" subprocess, so
+  // isFolderTreeStale() below can afford to re-run this every time the ROM
+  // root's own mtime has moved, rather than treating that alone as reason
+  // enough to redo the whole (expensive) recursive rebuild. This used to
+  // shell out to "find" itself, which is what was actually hanging for
+  // minutes on MAME's flat ROM directory - see listTopLevelSubfolders()'s
+  // own comment for why.
+  std::set<std::string> currentTopLevel;
+  for (auto& path : listTopLevelSubfolders(systemRootPath))
+    currentTopLevel.insert(path);
+
+  std::set<std::string> cachedTopLevel;
+  for (auto& entry : master)
+    if (Utils::FileSystem::getParent(entry.path) == systemRootPath)
+      cachedTopLevel.insert(entry.path);
+
+  return currentTopLevel != cachedTopLevel;
+}
+
+bool ApiSystem::isFolderTreeStale(const std::string& systemRootPath, time_t rootMtime, const std::vector<FolderCacheEntry>& master)
+{
+  // The ROM root's own mtime bumps for ANY direct child appearing or
+  // disappearing - not just a real, tracked top-level folder, but also a
+  // reserved one (media, images, downloaded_*, etc) scanSystemFolderTree()
+  // already excludes from this cache entirely, most commonly a scraper
+  // creating "media"/"images" the first time it saves artwork for a game in
+  // this system. Treating that alone as "stale" used to mean throwing this
+  // whole cache away and paying for a full recursive rebuild the next time
+  // MOVE TO FOLDER was opened - silently, since folders.xml already existed
+  // so the "building for the first time" notice never fired either, which
+  // is exactly the kind of long, unexplained pause a scrape landing between
+  // two "move to folder" uses would cause. Confirm with
+  // topLevelFolderSetChanged() above that a real top-level folder actually
+  // appeared or disappeared before trusting that.
+  //
+  // Diagnostic timing - temporary, see getChildFolders()'s own note above.
+  StopWatch stopWatch("ApiSystem::isFolderTreeStale(" + systemRootPath + ", " + std::to_string(master.size()) + " entries) total :", LogDebug);
+
+  if (Utils::FileSystem::getFileModificationDate(systemRootPath).getTime() != rootMtime)
+  {
+    LOG(LogDebug) << "ApiSystem::isFolderTreeStale(" << systemRootPath << ") - root mtime changed, checking top-level set";
+
+    if (topLevelFolderSetChanged(systemRootPath, master))
+    {
+      LOG(LogDebug) << "ApiSystem::isFolderTreeStale(" << systemRootPath << ") - top-level folder set actually changed - stale";
+      return true;
+    }
+  }
+
+  // Same check, one level at a time, for every folder already known about:
+  // gone entirely, or its own mtime has moved on from what was last
+  // written - either way something changed inside it (a subfolder of ITS
+  // own added, renamed, or removed) since this cache was last trusted. This
+  // runs on every getChildFolders() lookup now, not just the first one, so
+  // it's fanned out with runFanned() above the same as everywhere else in
+  // this cache rather than checked one entry at a time.
+  StopWatch perEntryStopWatch("ApiSystem::isFolderTreeStale(" + systemRootPath + ") - per-entry check of " + std::to_string(master.size()) + " folders :", LogDebug);
+
+  std::atomic<bool> stale(false);
+
+  runFanned(master.size(), [&master, &stale](size_t i)
+  {
+    auto& entry = master[i];
+
+    if (!Utils::FileSystem::exists(entry.path) ||
+      Utils::FileSystem::getFileModificationDate(entry.path).getTime() != entry.mtime)
+      stale = true;
+  });
+
+  return stale.load();
+}
+
+std::vector<ApiSystem::FolderCacheEntry> ApiSystem::buildAndWriteFolderTree(const std::string& systemRootPath, const std::string& xmlPath, const std::vector<std::string>& folderPaths)
+{
+  // One stat() per folder to fill in its own FolderCacheEntry::mtime. On a
+  // big system that can be just as many stat() calls as there are folders,
+  // each one its own blocking disk/network round trip on exactly the kind
+  // of slow ROM storage (SD card, USB stick, SMB/NFS share) this whole
+  // cache exists to avoid re-paying on every lookup - so fan it out with
+  // runFanned() above rather than walking the list one entry at a time.
+  //
+  // Diagnostic timing - temporary, see getChildFolders()'s own note above.
+  StopWatch stopWatch("ApiSystem::buildAndWriteFolderTree(" + systemRootPath + ", " + std::to_string(folderPaths.size()) + " folders) total :", LogDebug);
+
+  std::vector<FolderCacheEntry> master(folderPaths.size());
+
+  runFanned(folderPaths.size(), [&master, &folderPaths](size_t i)
+  {
+    master[i].path = folderPaths[i];
+    master[i].mtime = Utils::FileSystem::getFileModificationDate(folderPaths[i]).getTime();
+  });
+
+  time_t rootMtime = Utils::FileSystem::getFileModificationDate(systemRootPath).getTime();
+  writeSystemFolderTree(xmlPath, master, rootMtime);
+
+  return master;
+}
+
+std::vector<ApiSystem::FolderCacheEntry> ApiSystem::rebuildFolderTree(const std::string& systemRootPath, const std::string& xmlPath)
+{
+  // scanSystemFolderTree() only hands back each found folder's path - it
+  // stays on plain, portable "find ... -print" (see that function's own
+  // comment for why) - so buildAndWriteFolderTree() above is what actually
+  // fills in each FolderCacheEntry::mtime and writes the result out.
+  return buildAndWriteFolderTree(systemRootPath, xmlPath, scanSystemFolderTree(systemRootPath));
+}
+
+void ApiSystem::primeFolderTreeFromKnownFolders(std::string systemRootPath, const std::vector<std::string>& knownFolderPaths)
+{
+  // SystemData::SystemData() calls this right after populateFolder() walks
+  // a system's ROM tree in memory to build its FolderData children - the
+  // exact same folders (same reserved-name exclusions) scanSystemFolderTree()
+  // would otherwise have to rediscover itself later, by spawning "find" all
+  // over again, the first time the user opens MOVE TO FOLDER for this
+  // system. Handing that list straight to buildAndWriteFolderTree() below
+  // means folders.xml is already built - and already fresh, since it's
+  // sourced from the walk that just happened - by the time this system
+  // finishes loading, with no extra directory walk of its own: only the
+  // one stat() per folder that function still needs for its own mtime
+  // bookkeeping.
+  std::string xmlPath = systemRootPath + "/folders.xml";
+
+  // But if folders.xml already exists from a previous run, check first
+  // whether anything it describes has actually changed - the exact same
+  // mtime check getChildFolders() below runs on every lookup - before
+  // paying to rebuild it. If nothing's stale, the cache already matches
+  // disk exactly, so rebuilding it here would only write back the same
+  // paths and mtimes it already holds: a stat() per folder and a flash
+  // write for every system, on every single boot, whether or not the user
+  // actually added, removed or moved anything since EmulationStation last
+  // ran. Skip straight past all of that in the common case where nothing
+  // changed, and only fall through to an actual rebuild when it did (or
+  // when there's no usable cache yet at all).
+  if (Utils::FileSystem::exists(xmlPath))
+  {
+    time_t rootMtime;
+    bool ok;
+    std::vector<FolderCacheEntry> master = readSystemFolderTree(xmlPath, rootMtime, ok);
+
+    if (ok && !isFolderTreeStale(systemRootPath, rootMtime, master))
+      return;
+  }
+
+  buildAndWriteFolderTree(systemRootPath, xmlPath, knownFolderPaths);
+}
+
+std::vector<std::string> ApiSystem::getChildFolders(std::string path, std::string systemRootPath)
+{
+  // The tree this describes normally only ever changes through
+  // GuiFolderOptions.cpp's own CREATE/MOVE/RENAME/REMOVE FOLDER actions,
+  // and each of those calls addFolderToCache() / moveFolderInCache() /
+  // removeFolderFromCache() right afterwards to patch this same
+  // folders.xml (and its stored mtimes) in place - so as long as it
+  // exists and isFolderTreeStale() below doesn't find a mismatch, it's
+  // always as current as the last change made through this app, and
+  // there's no live scan to run here: the entire cost this exists to
+  // avoid - "find" walking a folder cold on slow storage (an SD card, a
+  // network share) - is paid only the first time for a given system, and
+  // again only if something changes it from outside this app entirely
+  // (over SSH/SFTP, from a USB stick, etc. - isFolderTreeStale() is what
+  // actually catches that case), rather than every time EmulationStation
+  // happens to restart, or every time one of those four actions changes
+  // something in it.
+  // Diagnostic timing - temporary, while tracking down where MOVE TO
+  // FOLDER's own delay is actually going. Enable debug logging (Settings ->
+  // Developer -> Enable debug logs, or "LogLevel" -> "debug" in
+  // es_settings.xml) to see these in es_log.txt.
+  StopWatch stopWatch("ApiSystem::getChildFolders(" + systemRootPath + ") total :", LogDebug);
+
+  std::string xmlPath = systemRootPath + "/folders.xml";
+
+  std::vector<FolderCacheEntry> master;
+  bool haveCachedTree = false;
+  time_t rootMtime = 0;
+
+  if (Utils::FileSystem::exists(xmlPath))
+    master = readSystemFolderTree(xmlPath, rootMtime, haveCachedTree);
+
+  LOG(LogDebug) << "ApiSystem::getChildFolders(" << systemRootPath << ") - cache "
+    << (haveCachedTree ? "loaded, " + std::to_string(master.size()) + " entries" : "missing or unreadable");
+
+  if (haveCachedTree && isFolderTreeStale(systemRootPath, rootMtime, master))
+  {
+    LOG(LogDebug) << "ApiSystem::getChildFolders(" << systemRootPath << ") - cache is stale, rebuilding";
+    haveCachedTree = false;
+  }
+
+  if (!haveCachedTree)
+  {
+    // Missing, corrupted (failed to parse), or stale (something changed
+    // underneath it since it was last written, caught above) - either
+    // way, nothing here can be trusted as-is, so scan for real and write
+    // what this finds as the fresh cache from now on (see
+    // rebuildFolderTree()'s own comment for exactly what that involves).
+    // A system with no subfolders at all legitimately scans to an empty
+    // list here - written out and trusted as-is on every call after this
+    // one, never mistaken for "not cached" the way an empty 'master'
+    // alone would be.
+    LOG(LogDebug) << "ApiSystem::getChildFolders(" << systemRootPath << ") - rebuilding from a live scan";
+    master = rebuildFolderTree(systemRootPath, xmlPath);
+    LOG(LogDebug) << "ApiSystem::getChildFolders(" << systemRootPath << ") - rebuild found " << master.size() << " folders";
+  }
+
+  // Every caller from here down only ever wants the plain path list, same
+  // as before this cache started tracking a per-entry mtime alongside it.
+  std::vector<std::string> masterPaths;
+  masterPaths.reserve(master.size());
+  for (auto& entry : master)
+    masterPaths.push_back(entry.path);
+
+  // 'path' is the system's own ROM root itself when this is asking for its
+  // whole tree (moveToFolder()'s own picker does this when 'file' lives
+  // right at that root) - canonicalized on both sides for this one check
+  // since 'path' is usually computed with base_path() rather than coming
+  // from 'systemRootPath' directly, and the two can differ in trivial ways
+  // (a trailing slash, a "." component) even when they name the same real
+  // directory.
+  if (Utils::FileSystem::getCanonicalPath(path) == Utils::FileSystem::getCanonicalPath(systemRootPath))
+    return masterPaths;
+
+  // Otherwise 'path' is some folder further down the tree - every entry
+  // already in 'masterPaths' that's under IT, however many levels down,
+  // same as this always returned (moveToFolder()'s own "down" picker can
+  // offer a destination several levels under the current folder, not just
+  // a direct child of it). Matched against the raw (non-canonicalized)
+  // 'path', same as the "find" scan above always searched under it raw -
+  // every path in 'masterPaths' comes from that same raw 'systemRootPath'
+  // family, so a plain prefix match is all that's needed here.
+  std::string prefix = path + "/";
+
+  std::vector<std::string> filtered;
+  for (auto& folder : masterPaths)
+    if (Utils::String::startsWith(folder, prefix))
+      filtered.push_back(folder);
+
+  return filtered;
+}
+
+void ApiSystem::addFolderToCache(std::string systemRootPath, std::string newFolderPath)
+{
+  std::string xmlPath = systemRootPath + "/folders.xml";
+  if (!Utils::FileSystem::exists(xmlPath))
+    return;
+
+  bool ok = false;
+  time_t rootMtime = 0;
+  std::vector<FolderCacheEntry> master = readSystemFolderTree(xmlPath, rootMtime, ok);
+  if (!ok)
+    return;
+
+  bool alreadyCached = false;
+  for (auto& entry : master)
+    if (entry.path == newFolderPath)
+      alreadyCached = true;
+
+  if (!alreadyCached)
+  {
+    FolderCacheEntry entry;
+    entry.path = newFolderPath;
+    entry.mtime = Utils::FileSystem::getFileModificationDate(newFolderPath).getTime();
+    master.push_back(entry);
+  }
+
+  // newFolderPath's own creation just changed its parent directory's
+  // contents - refresh whichever mtime that parent has stored (the system
+  // ROM root's own separate one, if that's what it is, or its own entry in
+  // 'master' otherwise) to match, so getChildFolders()'s own staleness
+  // check doesn't mistake this in-app change for an outside one on the
+  // very next call and pay for a fresh "find" scan it doesn't need.
+  std::string parentPath = Utils::FileSystem::getParent(newFolderPath);
+
+  if (Utils::FileSystem::getCanonicalPath(parentPath) == Utils::FileSystem::getCanonicalPath(systemRootPath))
+    rootMtime = Utils::FileSystem::getFileModificationDate(systemRootPath).getTime();
+  else
+  {
+    for (auto& entry : master)
+      if (entry.path == parentPath)
+        entry.mtime = Utils::FileSystem::getFileModificationDate(parentPath).getTime();
+  }
+
+  writeSystemFolderTree(xmlPath, master, rootMtime);
+}
+
+void ApiSystem::moveFolderInCache(std::string systemRootPath, std::string oldPath, std::string newPath)
+{
+  std::string xmlPath = systemRootPath + "/folders.xml";
+  if (!Utils::FileSystem::exists(xmlPath))
+    return;
+
+  bool ok = false;
+  time_t rootMtime = 0;
+  std::vector<FolderCacheEntry> master = readSystemFolderTree(xmlPath, rootMtime, ok);
+  if (!ok)
+    return;
+
+  std::string oldPrefix = oldPath + "/";
+  bool haveNewPath = false;
+
+  for (auto& entry : master)
+  {
+    if (entry.path == oldPath)
+      entry.path = newPath;
+    else if (Utils::String::startsWith(entry.path, oldPrefix))
+      entry.path = newPath + entry.path.substr(oldPath.size());
+
+    if (entry.path == newPath)
+      haveNewPath = true;
+  }
+
+  // oldPath's own entry is what usually carries this rename/move through
+  // to newPath above - this only has to add it separately in the rare
+  // case oldPath itself was never cached (e.g. this system's tree was
+  // scanned before oldPath even existed), so a fresh "find" scan would
+  // still be the ONLY thing that ever lists newPath's own entry rather
+  // than losing it. Any of oldPath's own descendants, if there were any,
+  // are already carried over by the loop above regardless.
+  if (!haveNewPath)
+  {
+    FolderCacheEntry entry;
+    entry.path = newPath;
+    entry.mtime = Utils::FileSystem::getFileModificationDate(newPath).getTime();
+    master.push_back(entry);
+  }
+
+  // oldPath leaving its old parent, and newPath's entry landing in its new
+  // one (the same parent, for a plain rename - refreshed once either way,
+  // since both lookups resolve to the same stored mtime), are both
+  // directory-content changes that would otherwise look like an outside
+  // edit to getChildFolders()'s own staleness check on its very next call
+  // - same reasoning addFolderToCache() above gives for its own new
+  // folder's parent.
+  auto refreshParentMtime = [&](const std::string& parentOfChange)
+  {
+    if (Utils::FileSystem::getCanonicalPath(parentOfChange) == Utils::FileSystem::getCanonicalPath(systemRootPath))
+      rootMtime = Utils::FileSystem::getFileModificationDate(systemRootPath).getTime();
+    else
+    {
+      for (auto& entry : master)
+        if (entry.path == parentOfChange)
+          entry.mtime = Utils::FileSystem::getFileModificationDate(parentOfChange).getTime();
+    }
+  };
+
+  refreshParentMtime(Utils::FileSystem::getParent(oldPath));
+  refreshParentMtime(Utils::FileSystem::getParent(newPath));
+
+  writeSystemFolderTree(xmlPath, master, rootMtime);
+}
+
+void ApiSystem::removeFolderFromCache(std::string systemRootPath, std::string removedPath)
+{
+  std::string xmlPath = systemRootPath + "/folders.xml";
+  if (!Utils::FileSystem::exists(xmlPath))
+    return;
+
+  bool ok = false;
+  time_t rootMtime = 0;
+  std::vector<FolderCacheEntry> master = readSystemFolderTree(xmlPath, rootMtime, ok);
+  if (!ok)
+    return;
+
+  std::string prefix = removedPath + "/";
+
+  std::vector<FolderCacheEntry> filtered;
+  for (auto& entry : master)
+    if (entry.path != removedPath && !Utils::String::startsWith(entry.path, prefix))
+      filtered.push_back(entry);
+
+  if (filtered.size() == master.size())
+    return;
+
+  // removedPath leaving its (former) parent is a directory-content change
+  // that would otherwise look like an outside edit to getChildFolders()'s
+  // own staleness check on its very next call - same reasoning
+  // addFolderToCache() above gives for its own new folder's parent.
+  // removedPath itself is gone from disk by now, but getParent() is a
+  // plain string operation - it never has to stat 'removedPath' itself to
+  // find where it used to live.
+  std::string parentPath = Utils::FileSystem::getParent(removedPath);
+
+  if (Utils::FileSystem::getCanonicalPath(parentPath) == Utils::FileSystem::getCanonicalPath(systemRootPath))
+    rootMtime = Utils::FileSystem::getFileModificationDate(systemRootPath).getTime();
+  else
+  {
+    for (auto& entry : filtered)
+      if (entry.path == parentPath)
+        entry.mtime = Utils::FileSystem::getFileModificationDate(parentPath).getTime();
+  }
+
+  writeSystemFolderTree(xmlPath, filtered, rootMtime);
+}
+
+void ApiSystem::rescanFolderTree(std::string systemRootPath)
+{
+  // Unlike addFolderToCache() and friends above, this never no-ops on a
+  // missing folders.xml - rebuildFolderTree() below scans and writes a
+  // fresh one regardless, same as getChildFolders() itself does the very
+  // first time it's asked about a system that's never had one.
+  std::string xmlPath = systemRootPath + "/folders.xml";
+  rebuildFolderTree(systemRootPath, xmlPath);
+}
+
+void ApiSystem::refreshFolderMtime(std::string systemRootPath, std::string folderPath)
+{
+  std::string xmlPath = systemRootPath + "/folders.xml";
+  if (!Utils::FileSystem::exists(xmlPath))
+    return;
+
+  bool ok = false;
+  time_t rootMtime = 0;
+  std::vector<FolderCacheEntry> master = readSystemFolderTree(xmlPath, rootMtime, ok);
+  if (!ok)
+    return;
+
+  // A plain GAME move never adds, removes or renames anything in
+  // 'master' - the file that actually moved was never a cache entry to
+  // begin with - so this only ever touches one existing entry's stored
+  // mtime (or the cache's separate root mtime) in place, same as
+  // addFolderToCache() and friends above do for their own affected
+  // parent, just without any of their own path-list bookkeeping around
+  // it.
+  if (Utils::FileSystem::getCanonicalPath(folderPath) == Utils::FileSystem::getCanonicalPath(systemRootPath))
+  {
+    rootMtime = Utils::FileSystem::getFileModificationDate(systemRootPath).getTime();
+    writeSystemFolderTree(xmlPath, master, rootMtime);
+    return;
+  }
+
+  for (auto& entry : master)
+  {
+    if (entry.path != folderPath)
+      continue;
+
+    entry.mtime = Utils::FileSystem::getFileModificationDate(folderPath).getTime();
+    writeSystemFolderTree(xmlPath, master, rootMtime);
+    return;
+  }
+
+  // 'folderPath' isn't a tracked entry (e.g. it was never picked up by
+  // the last "find" scan) - nothing here to refresh, and nothing to
+  // write back either, since 'master' and 'rootMtime' are otherwise
+  // exactly what's already on disk.
+}
+#endif

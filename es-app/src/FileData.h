@@ -97,6 +97,28 @@ public:
 	virtual const std::string getPath() const;
 	const std::string getBreadCrumbPath();
 
+#ifdef _ENABLEEMUELEC
+	// Overwrites this node's own stored path in place - used when a folder
+	// higher up the tree gets renamed on disk, since every node (this one
+	// included) keeps its own absolute path rather than computing it from
+	// its parent's. Not virtual: CollectionFileData never owns a real path
+	// of its own (its getPath() just forwards to mSourceFileData), so there
+	// is nothing there for this to override. Also drops the cached display
+	// name (see getDisplayName() below) so it gets recomputed from the new
+	// path next time it's asked for, instead of going on showing whatever
+	// stem the old path had.
+	inline void setPath(const std::string& path)
+	{
+		mPath = path;
+
+		if (mDisplayName != nullptr)
+		{
+			delete mDisplayName;
+			mDisplayName = nullptr;
+		}
+	}
+#endif
+
 	virtual SystemEnvironmentData* getSystemEnvData() const;
 
 	virtual const std::string getThumbnailPath(bool fallbackWithImage = true);
