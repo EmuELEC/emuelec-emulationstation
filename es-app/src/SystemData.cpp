@@ -1107,6 +1107,7 @@ SystemData* SystemData::loadSystem(pugi::xml_node system, bool fullMode)
 	envData->mStartPath = path;
 	envData->mSearchExtensions = extensions;
 	envData->mLaunchCommand = cmd;
+	envData->mSystemCommand = system.child("systemcommand").text().get();
 	envData->mPlatformIds = platformIds;
 	envData->mGroup = system.child("group").text().get();
 	

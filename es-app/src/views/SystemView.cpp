@@ -522,7 +522,28 @@ bool SystemView::input(InputConfig* config, Input input)
 		if (config->isMappedTo(BUTTON_OK, input))
 		{
 			mCarousel.stopScrolling();
-			ViewController::get()->goToGameList(getSelected());
+
+			SystemData* selectedSystem = getSelected();
+
+			if (selectedSystem != nullptr && !selectedSystem->getSystemCommand().empty())
+			{
+				std::string command = selectedSystem->getSystemCommand();
+
+				command = Utils::String::replace(
+					command,
+					"%SYSTEM%",
+					selectedSystem->getName());
+
+				LOG(LogInfo) << "Launching system command: " << command;
+
+				int exitCode = system(command.c_str());
+
+				LOG(LogInfo) << "System command exited with code " << exitCode;
+
+				return true;
+			}
+
+			ViewController::get()->goToGameList(selectedSystem);
 			return true;
 		}
 
